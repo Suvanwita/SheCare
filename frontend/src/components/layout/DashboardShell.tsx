@@ -1,29 +1,69 @@
 "use client";
 
-import React, { useState } from "react";
-import Sidebar from "./Sidebar";
-import Header from "./Header";
+import React, { useEffect, useState, useSyncExternalStore } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import DashboardSidebar from "./DashboardSidebar";
+import DashboardTopbar from "./DashboardTopbar";
+import { getDashboardPageTitle } from "../../constants/navigation";
+import { isMockAuthenticated, logoutMock } from "../../lib/mockAuth";
+
+const subscribeToAuth = () => () => {};
+const getAuthSnapshot = () => isMockAuthenticated();
+const getServerAuthSnapshot = () => false;
 
 interface DashboardShellProps {
   children: React.ReactNode;
 }
 
 export default function DashboardShell({ children }: DashboardShellProps) {
+  const pathname = usePathname();
+  const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const isAuthenticated = useSyncExternalStore(
+    subscribeToAuth,
+    getAuthSnapshot,
+    getServerAuthSnapshot
+  );
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      router.replace("/login");
+    }
+  }, [isAuthenticated, router]);
+
+  const handleLogout = () => {
+    logoutMock();
+    router.replace("/login");
+  };
+
+  if (!isAuthenticated) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-background text-foreground">
+        <div className="glass-card rounded-3xl border border-border/60 p-6 text-center shadow-lg shadow-foreground/5">
+          <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+          <p className="text-sm font-bold">Checking your SheCare session...</p>
+          <p className="mt-1 text-xs text-muted-foreground">Redirecting to sign in if needed.</p>
+        </div>
+      </main>
+    );
+  }
 
   return (
-    <div className="flex min-h-screen bg-background text-foreground transition-colors duration-200">
-      {/* Dynamic Sidebar Shell */}
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+    <div className="flex min-h-screen bg-muted/20 text-foreground">
+      <DashboardSidebar
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+      />
 
-      {/* Main viewport area */}
-      <div className="flex flex-1 flex-col overflow-hidden min-h-screen">
-        {/* Header toolbar */}
-        <Header onMenuToggle={() => setSidebarOpen(!sidebarOpen)} />
+      <div className="flex min-w-0 flex-1 flex-col">
+        <DashboardTopbar
+          title={getDashboardPageTitle(pathname)}
+          onMenuToggle={() => setSidebarOpen(true)}
+          onLogout={handleLogout}
+        />
 
-        {/* Main page content layout grid */}
-        <main className="flex-grow overflow-y-auto px-4 py-6 sm:px-6 md:px-8">
-          <div className="max-w-7xl mx-auto space-y-6">
+        <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-7xl space-y-6">
             {children}
           </div>
         </main>
