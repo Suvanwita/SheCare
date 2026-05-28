@@ -26,6 +26,7 @@ import {
 import { LANDING_NAV_ITEMS } from "../constants";
 import BeforeAfterSheCare from "../components/landing/BeforeAfterSheCare";
 import CycleSimulator from "../components/landing/CycleSimulator";
+import HealthConstellation from "../components/landing/HealthConstellation";
 import MorphingDashboardShowcase from "../components/landing/MorphingDashboardShowcase";
 import { cn } from "../lib/utils";
 
@@ -800,6 +801,7 @@ export default function LandingPage() {
         </section>
 
         <BeforeAfterSheCare />
+        <HealthConstellation />
         <HealthJourneyTimeline />
         <CycleSimulator />
         <MorphingDashboardShowcase />
