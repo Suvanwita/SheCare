@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { LANDING_NAV_ITEMS } from "../constants";
 import CycleSimulator from "../components/landing/CycleSimulator";
+import MorphingDashboardShowcase from "../components/landing/MorphingDashboardShowcase";
 import { cn } from "../lib/utils";
 
 const subscribeToMount = () => () => {};
@@ -799,6 +800,7 @@ export default function LandingPage() {
 
         <HealthJourneyTimeline />
         <CycleSimulator />
+        <MorphingDashboardShowcase />
         <AnimatedStats />
         <Testimonials />
 
