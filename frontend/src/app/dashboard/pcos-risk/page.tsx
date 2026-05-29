@@ -1,106 +1,118 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import {
   Activity,
+  AlertCircle,
   BrainCircuit,
-  CalendarDays,
   CheckCircle2,
   HeartPulse,
   Info,
-  Moon,
-  Scale,
+  Loader2,
+  Microscope,
   ShieldAlert,
   Sparkles,
-  Utensils,
 } from "lucide-react";
-import {
-  PCOS_BASE_FACTORS,
-  PCOS_HEALTH_TIPS,
-  PCOS_RISK_PROFILES,
-  type PcosRiskLevel,
-  type PcosRiskProfile,
-} from "../../../data/mockPCOS";
 import { cn } from "../../../lib/utils";
 
-const yesNoSchema = z.enum(["yes", "no"], {
-  message: "Choose yes or no",
-});
+const yesNoNumberSchema = z.coerce
+  .number({ message: "Choose yes or no" })
+  .refine((value) => value === 0 || value === 1, "Choose yes or no");
 
 const pcosSchema = z.object({
-  age: z.coerce.number({ message: "Age is required" }).min(12, "Enter a valid age").max(60, "Enter a valid age"),
-  weight: z.coerce.number({ message: "Weight is required" }).min(20, "Enter a valid weight").max(250, "Enter a valid weight"),
-  height: z.coerce.number({ message: "Height is required" }).min(100, "Enter height in cm").max(230, "Enter height in cm"),
-  cycleLength: z.coerce.number({ message: "Cycle length is required" }).min(15, "Cycle length looks too short").max(90, "Cycle length looks too long"),
-  irregularCycle: yesNoSchema,
-  weightGain: yesNoSchema,
-  hairGrowth: yesNoSchema,
-  skinDarkening: yesNoSchema,
-  pimples: yesNoSchema,
-  fastFoodFrequency: z.coerce.number({ message: "Fast food frequency is required" }).min(0, "Cannot be negative").max(21, "Enter weekly frequency"),
-  exerciseFrequency: z.coerce.number({ message: "Exercise frequency is required" }).min(0, "Cannot be negative").max(14, "Enter weekly frequency"),
-  sleepHours: z.coerce.number({ message: "Sleep hours are required" }).min(0, "Sleep cannot be negative").max(24, "Sleep cannot exceed 24 hours"),
-  stressLevel: z.coerce.number({ message: "Stress level is required" }).min(1, "Use a 1-10 scale").max(10, "Use a 1-10 scale"),
+  age_yrs: z.coerce.number({ message: "Age is required" }).min(12, "Enter a valid age").max(60, "Enter a valid age"),
+  weight_kg: z.coerce.number({ message: "Weight is required" }).min(20, "Enter a valid weight").max(250, "Enter a valid weight"),
+  height_cm: z.coerce.number({ message: "Height is required" }).min(100, "Enter height in cm").max(230, "Enter height in cm"),
+  bmi: z.coerce.number().min(1, "BMI is calculated from weight and height"),
+  cycle_r_i: z.coerce.number({ message: "Choose cycle regularity" }).refine((value) => value === 2 || value === 4, "Choose cycle regularity"),
+  cycle_length_days: z.coerce.number({ message: "Cycle length is required" }).min(1, "Enter cycle length").max(120, "Cycle length looks too long"),
+  weight_gain_y_n: yesNoNumberSchema,
+  hair_growth_y_n: yesNoNumberSchema,
+  skin_darkening_y_n: yesNoNumberSchema,
+  hair_loss_y_n: yesNoNumberSchema,
+  pimples_y_n: yesNoNumberSchema,
+  fast_food_y_n: yesNoNumberSchema,
+  reg_exercise_y_n: yesNoNumberSchema,
+  follicle_no_l: z.coerce.number({ message: "Left follicle count is required" }).min(0, "Cannot be negative").max(100, "Check this value"),
+  follicle_no_r: z.coerce.number({ message: "Right follicle count is required" }).min(0, "Cannot be negative").max(100, "Check this value"),
+  amh_ng_ml: z.coerce.number({ message: "AMH is required" }).min(0, "Cannot be negative").max(100, "Check this value"),
+  fsh_miu_ml: z.coerce.number({ message: "FSH is required" }).min(0, "Cannot be negative").max(200, "Check this value"),
+  lh_miu_ml: z.coerce.number({ message: "LH is required" }).min(0.01, "LH must be greater than 0").max(200, "Check this value"),
+  fsh_lh: z.coerce.number().min(0, "FSH/LH is calculated from lab values"),
+  tsh_miu_l: z.coerce.number({ message: "TSH is required" }).min(0, "Cannot be negative").max(100, "Check this value"),
+  vit_d3_ng_ml: z.coerce.number({ message: "Vitamin D3 is required" }).min(0, "Cannot be negative").max(300, "Check this value"),
+  waist_inch: z.coerce.number({ message: "Waist is required" }).min(10, "Enter waist in inches").max(100, "Check this value"),
+  hip_inch: z.coerce.number({ message: "Hip is required" }).min(10, "Enter hip in inches").max(100, "Check this value"),
+  waist_hip_ratio: z.coerce.number().min(0.1, "Waist-hip ratio is calculated from waist and hip"),
 });
 
 type PcosFormInput = z.input<typeof pcosSchema>;
 type PcosFormValues = z.output<typeof pcosSchema>;
+type RiskLevel = "Low" | "Moderate" | "High";
 
-const riskTone: Record<PcosRiskLevel, string> = {
-  "Low Risk": "border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
-  "Moderate Risk": "border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400",
-  "High Risk": "border-rose-500/20 bg-rose-500/10 text-rose-600 dark:text-rose-400",
+type PredictionResponse = {
+  probability: number;
+  risk_level: RiskLevel;
+  message: string;
+  top_contributing_factors: Array<{
+    feature: string;
+    value: number;
+    importance: number;
+  }>;
+  recommendation: string;
+  disclaimer: string;
+};
+
+const riskTone: Record<RiskLevel, string> = {
+  Low: "border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+  Moderate: "border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+  High: "border-rose-500/20 bg-rose-500/10 text-rose-700 dark:text-rose-300",
+};
+
+const featureLabels: Record<string, string> = {
+  age_yrs: "Age",
+  weight_kg: "Weight",
+  height_cm: "Height",
+  bmi: "BMI",
+  cycle_r_i: "Cycle regularity",
+  cycle_length_days: "Cycle length",
+  weight_gain_y_n: "Weight gain",
+  hair_growth_y_n: "Hair growth",
+  skin_darkening_y_n: "Skin darkening",
+  hair_loss_y_n: "Hair loss",
+  pimples_y_n: "Pimples",
+  fast_food_y_n: "Fast food",
+  reg_exercise_y_n: "Regular exercise",
+  follicle_no_l: "Follicle count left",
+  follicle_no_r: "Follicle count right",
+  amh_ng_ml: "AMH",
+  fsh_miu_ml: "FSH",
+  lh_miu_ml: "LH",
+  fsh_lh: "FSH/LH ratio",
+  tsh_miu_l: "TSH",
+  vit_d3_ng_ml: "Vitamin D3",
+  waist_inch: "Waist",
+  hip_inch: "Hip",
+  waist_hip_ratio: "Waist-hip ratio",
 };
 
 function calculateBmi(weight?: number, height?: number) {
-  if (!weight || !height) {
-    return 0;
-  }
-
+  if (!weight || !height) return 0;
   const heightMeters = height / 100;
-  return Number((weight / (heightMeters * heightMeters)).toFixed(1));
+  return Number((weight / (heightMeters * heightMeters)).toFixed(2));
 }
 
-function createRiskResult(data: PcosFormValues): PcosRiskProfile {
-  const bmi = calculateBmi(data.weight, data.height);
-  let score = 8;
-
-  if (data.irregularCycle === "yes") score += 18;
-  if (data.cycleLength < 21 || data.cycleLength > 35) score += 12;
-  if (data.weightGain === "yes") score += 10;
-  if (data.hairGrowth === "yes") score += 12;
-  if (data.skinDarkening === "yes") score += 10;
-  if (data.pimples === "yes") score += 8;
-  if (bmi >= 25) score += 10;
-  if (data.fastFoodFrequency >= 4) score += 6;
-  if (data.exerciseFrequency <= 1) score += 6;
-  if (data.sleepHours < 6) score += 5;
-  if (data.stressLevel >= 7) score += 5;
-
-  const probability = Math.min(94, score);
-  const level: PcosRiskLevel =
-    probability >= 65 ? "High Risk" : probability >= 35 ? "Moderate Risk" : "Low Risk";
-
-  return {
-    level,
-    probability,
-    ...PCOS_RISK_PROFILES[level],
-  };
+function calculateRatio(numerator?: number, denominator?: number) {
+  if (!numerator || !denominator) return 0;
+  return Number((numerator / denominator).toFixed(3));
 }
 
 function FieldError({ message }: { message?: string }) {
-  if (!message) {
-    return null;
-  }
-
-  return (
-    <p className="text-xs font-semibold text-destructive">
-      {message}
-    </p>
-  );
+  if (!message) return null;
+  return <p className="text-xs font-semibold text-destructive">{message}</p>;
 }
 
 function MetricInput({
@@ -109,9 +121,11 @@ function MetricInput({
   error,
   placeholder,
   step,
+  readOnly,
+  value,
 }: {
   label: string;
-  registration: ReturnType<typeof useForm<PcosFormInput>>["register"] extends (
+  registration?: ReturnType<typeof useForm<PcosFormInput>>["register"] extends (
     name: infer Name
   ) => infer RegisterReturn
     ? RegisterReturn
@@ -119,6 +133,8 @@ function MetricInput({
   error?: string;
   placeholder: string;
   step?: string;
+  readOnly?: boolean;
+  value?: number;
 }) {
   return (
     <label className="space-y-2">
@@ -129,9 +145,12 @@ function MetricInput({
         type="number"
         step={step}
         {...registration}
+        value={readOnly ? value || "" : undefined}
+        readOnly={readOnly}
         placeholder={placeholder}
         className={cn(
           "w-full rounded-2xl border bg-muted/10 px-4 py-3 text-sm outline-none transition focus:border-primary/80 focus:ring-1 focus:ring-primary/40",
+          readOnly ? "cursor-default border-primary/20 bg-primary/10 font-bold text-primary" : "",
           error ? "border-destructive/60" : "border-border/80"
         )}
       />
@@ -140,112 +159,171 @@ function MetricInput({
   );
 }
 
-function YesNoField({
+function SelectField({
   label,
-  name,
-  register,
+  registration,
   error,
+  options,
 }: {
   label: string;
-  name: keyof Pick<PcosFormInput, "irregularCycle" | "weightGain" | "hairGrowth" | "skinDarkening" | "pimples">;
-  register: ReturnType<typeof useForm<PcosFormInput>>["register"];
+  registration: ReturnType<typeof useForm<PcosFormInput>>["register"] extends (
+    name: infer Name
+  ) => infer RegisterReturn
+    ? RegisterReturn
+    : never;
   error?: string;
+  options: Array<{ label: string; value: string }>;
 }) {
   return (
-    <fieldset className="space-y-2">
-      <legend className="text-xs font-bold uppercase tracking-wide text-foreground/80">
+    <label className="space-y-2">
+      <span className="text-xs font-bold uppercase tracking-wide text-foreground/80">
         {label}
-      </legend>
-      <div className="grid grid-cols-2 gap-2">
-        {["yes", "no"].map((value) => (
-          <label
-            key={value}
-            className="flex items-center justify-center gap-2 rounded-2xl border border-border/70 bg-muted/10 px-3 py-2.5 text-xs font-bold capitalize text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
-          >
-            <input
-              type="radio"
-              value={value}
-              {...register(name)}
-              className="h-4 w-4 accent-primary"
-            />
-            {value}
-          </label>
+      </span>
+      <select
+        {...registration}
+        className={cn(
+          "w-full rounded-2xl border bg-muted/10 px-4 py-3 text-sm font-semibold outline-none transition focus:border-primary/80 focus:ring-1 focus:ring-primary/40",
+          error ? "border-destructive/60" : "border-border/80"
+        )}
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
         ))}
-      </div>
+      </select>
       <FieldError message={error} />
-    </fieldset>
+    </label>
   );
 }
 
-function FactorCard({
-  label,
-  description,
+function FactorRow({
+  feature,
   value,
-  icon: Icon,
+  importance,
 }: {
-  label: string;
-  description: string;
+  feature: string;
   value: number;
-  icon: React.ComponentType<{ className?: string }>;
+  importance: number;
 }) {
+  const percent = Math.min(100, Math.round(importance * 100));
+
   return (
-    <div className="rounded-3xl border border-border/60 bg-card p-5 shadow-sm">
+    <div className="rounded-2xl border border-border/60 bg-card p-4">
       <div className="flex items-center justify-between gap-3">
-        <Icon className="h-5 w-5 text-primary" />
-        <span className="text-xs font-black text-muted-foreground">{value}%</span>
+        <div>
+          <p className="text-sm font-black text-foreground">
+            {featureLabels[feature] ?? feature}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">Input value: {value}</p>
+        </div>
+        <span className="rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-xs font-black text-primary">
+          {percent}%
+        </span>
       </div>
-      <p className="mt-3 text-sm font-black text-foreground">{label}</p>
-      <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{description}</p>
       <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
-        <div className="h-full rounded-full bg-gradient-to-r from-primary to-secondary" style={{ width: `${value}%` }} />
+        <div
+          className="h-full rounded-full bg-gradient-to-r from-primary to-secondary"
+          style={{ width: `${percent}%` }}
+        />
       </div>
     </div>
   );
 }
 
 export default function PcosRiskDashboardPage() {
-  const [result, setResult] = useState<PcosRiskProfile | null>(null);
+  const [result, setResult] = useState<PredictionResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const {
     register,
     control,
     handleSubmit,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<PcosFormInput, unknown, PcosFormValues>({
     resolver: zodResolver(pcosSchema),
     defaultValues: {
-      irregularCycle: "no",
-      weightGain: "no",
-      hairGrowth: "no",
-      skinDarkening: "no",
-      pimples: "no",
-      fastFoodFrequency: undefined,
-      exerciseFrequency: undefined,
-      sleepHours: undefined,
-      stressLevel: 5,
+      cycle_r_i: 2,
+      weight_gain_y_n: 0,
+      hair_growth_y_n: 0,
+      skin_darkening_y_n: 0,
+      hair_loss_y_n: 0,
+      pimples_y_n: 0,
+      fast_food_y_n: 0,
+      reg_exercise_y_n: 1,
+      bmi: 0,
+      fsh_lh: 0,
+      waist_hip_ratio: 0,
     },
   });
 
-  const watchedWeight = useWatch({ control, name: "weight" });
-  const watchedHeight = useWatch({ control, name: "height" });
+  const watchedWeight = useWatch({ control, name: "weight_kg" });
+  const watchedHeight = useWatch({ control, name: "height_cm" });
+  const watchedWaist = useWatch({ control, name: "waist_inch" });
+  const watchedHip = useWatch({ control, name: "hip_inch" });
+  const watchedFsh = useWatch({ control, name: "fsh_miu_ml" });
+  const watchedLh = useWatch({ control, name: "lh_miu_ml" });
+
   const bmi = useMemo(
     () => calculateBmi(Number(watchedWeight), Number(watchedHeight)),
     [watchedHeight, watchedWeight]
   );
+  const waistHipRatio = useMemo(
+    () => calculateRatio(Number(watchedWaist), Number(watchedHip)),
+    [watchedHip, watchedWaist]
+  );
+  const fshLhRatio = useMemo(
+    () => calculateRatio(Number(watchedFsh), Number(watchedLh)),
+    [watchedFsh, watchedLh]
+  );
 
-  const onSubmit = (data: PcosFormValues) => {
-    setResult(createRiskResult(data));
+  useEffect(() => {
+    setValue("bmi", bmi, { shouldValidate: Boolean(bmi) });
+  }, [bmi, setValue]);
+
+  useEffect(() => {
+    setValue("waist_hip_ratio", waistHipRatio, { shouldValidate: Boolean(waistHipRatio) });
+  }, [setValue, waistHipRatio]);
+
+  useEffect(() => {
+    setValue("fsh_lh", fshLhRatio, { shouldValidate: Boolean(fshLhRatio) });
+  }, [fshLhRatio, setValue]);
+
+  const onSubmit = async (data: PcosFormValues) => {
+    setError(null);
+    setResult(null);
+
+    const baseUrl = process.env.NEXT_PUBLIC_ML_API_URL;
+    if (!baseUrl) {
+      setError("ML service URL is not configured. Set NEXT_PUBLIC_ML_API_URL.");
+      return;
+    }
+
+    try {
+      const response = await fetch(`${baseUrl.replace(/\/$/, "")}/predict-pcos`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload?.detail || "Unable to estimate PCOS risk.");
+      }
+
+      setResult(payload as PredictionResponse);
+    } catch (requestError) {
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : "Unable to connect to the ML service."
+      );
+    }
   };
 
-  const probability = result?.probability ?? 0;
+  const probability = result ? Math.round(result.probability * 100) : 0;
   const circumference = 2 * Math.PI * 72;
   const offset = circumference - (probability / 100) * circumference;
-  const factorValues = [
-    result ? Math.min(100, Math.round(probability * 0.9 + 8)) : 18,
-    result ? Math.min(100, Math.round(probability * 0.8 + 10)) : 22,
-    result ? Math.min(100, Math.round(probability * 0.65 + 14)) : 24,
-    result ? Math.min(100, Math.round(probability * 0.7 + 12)) : 20,
-  ];
-  const factorIcons = [CalendarDays, Sparkles, Moon, Scale];
 
   return (
     <div className="space-y-6">
@@ -257,72 +335,105 @@ export default function PcosRiskDashboardPage() {
           PCOS Risk Assessment
         </h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          Analyze symptoms and lifestyle indicators to estimate PCOS risk.
+          Estimate PCOS risk using the SheCare ML service and clinically relevant inputs.
         </p>
       </section>
 
-      <section className="rounded-3xl border border-amber-500/20 bg-amber-500/10 p-5">
+      <section className="rounded-3xl border border-rose-500/20 bg-rose-500/10 p-5">
         <div className="flex gap-3">
-          <Info className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
+          <Info className="mt-0.5 h-5 w-5 shrink-0 text-rose-600 dark:text-rose-400" />
           <div>
-            <h3 className="text-sm font-black text-foreground">Informational assessment only</h3>
+            <h3 className="text-sm font-black text-foreground">Medical disclaimer</h3>
             <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-              This is not a medical diagnosis. Risk estimation is informational and based on mocked
-              frontend logic. Consult qualified healthcare professionals for medical advice,
-              diagnosis, and treatment.
+              This assessment is informational and connects only to the ML service. It is not a diagnosis.
             </p>
           </div>
         </div>
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)]">
+      <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.8fr)]">
         <form
           onSubmit={handleSubmit(onSubmit)}
           className="glass-card rounded-3xl border border-border/60 p-6 shadow-sm"
         >
-          <div className="mb-5">
-            <h3 className="text-lg font-black text-foreground">Assessment form</h3>
-            <p className="mt-1 text-xs text-muted-foreground">
-              BMI is calculated automatically from weight and height.
-            </p>
+          <div className="mb-5 flex items-center gap-2">
+            <Microscope className="h-5 w-5 text-primary" />
+            <div>
+              <h3 className="text-lg font-black text-foreground">Assessment form</h3>
+              <p className="mt-1 text-xs text-muted-foreground">
+                BMI, FSH/LH, and waist-hip ratio are calculated automatically.
+              </p>
+            </div>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <MetricInput label="Age" registration={register("age")} error={errors.age?.message} placeholder="26" />
-            <MetricInput label="Weight (kg)" registration={register("weight")} error={errors.weight?.message} placeholder="63.5" step="0.1" />
-            <MetricInput label="Height (cm)" registration={register("height")} error={errors.height?.message} placeholder="164" step="0.1" />
+            <MetricInput label="Age" registration={register("age_yrs")} error={errors.age_yrs?.message} placeholder="28" />
+            <MetricInput label="Weight (kg)" registration={register("weight_kg")} error={errors.weight_kg?.message} placeholder="65" step="0.1" />
+            <MetricInput label="Height (cm)" registration={register("height_cm")} error={errors.height_cm?.message} placeholder="160" step="0.1" />
+            <MetricInput label="BMI" registration={register("bmi")} error={errors.bmi?.message} placeholder="Auto" step="0.01" readOnly value={bmi} />
+            <SelectField
+              label="Cycle regularity"
+              registration={register("cycle_r_i")}
+              error={errors.cycle_r_i?.message}
+              options={[
+                { label: "Regular", value: "2" },
+                { label: "Irregular", value: "4" },
+              ]}
+            />
+            <MetricInput label="Cycle length (days)" registration={register("cycle_length_days")} error={errors.cycle_length_days?.message} placeholder="28" />
           </div>
 
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            <div className="rounded-3xl border border-primary/20 bg-primary/10 p-5">
-              <p className="text-xs font-bold uppercase tracking-wide text-primary">Auto-calculated BMI</p>
-              <p className="mt-2 text-3xl font-black text-foreground">{bmi || "--"}</p>
+          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {[
+              ["Recent weight gain", "weight_gain_y_n"],
+              ["Excess hair growth", "hair_growth_y_n"],
+              ["Skin darkening", "skin_darkening_y_n"],
+              ["Hair loss", "hair_loss_y_n"],
+              ["Pimples/acne", "pimples_y_n"],
+              ["Fast food intake", "fast_food_y_n"],
+              ["Regular exercise", "reg_exercise_y_n"],
+            ].map(([label, name]) => (
+              <SelectField
+                key={name}
+                label={label}
+                registration={register(name as keyof PcosFormInput)}
+                error={errors[name as keyof PcosFormValues]?.message}
+                options={[
+                  { label: "No", value: "0" },
+                  { label: "Yes", value: "1" },
+                ]}
+              />
+            ))}
+          </div>
+
+          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <MetricInput label="Follicle no. left" registration={register("follicle_no_l")} error={errors.follicle_no_l?.message} placeholder="8" />
+            <MetricInput label="Follicle no. right" registration={register("follicle_no_r")} error={errors.follicle_no_r?.message} placeholder="9" />
+            <MetricInput label="AMH (ng/mL)" registration={register("amh_ng_ml")} error={errors.amh_ng_ml?.message} placeholder="5.2" step="0.01" />
+            <MetricInput label="FSH (mIU/mL)" registration={register("fsh_miu_ml")} error={errors.fsh_miu_ml?.message} placeholder="6.5" step="0.01" />
+            <MetricInput label="LH (mIU/mL)" registration={register("lh_miu_ml")} error={errors.lh_miu_ml?.message} placeholder="8.1" step="0.01" />
+            <MetricInput label="FSH/LH ratio" registration={register("fsh_lh")} error={errors.fsh_lh?.message} placeholder="Auto" step="0.001" readOnly value={fshLhRatio} />
+            <MetricInput label="TSH (mIU/L)" registration={register("tsh_miu_l")} error={errors.tsh_miu_l?.message} placeholder="2.1" step="0.01" />
+            <MetricInput label="Vitamin D3 (ng/mL)" registration={register("vit_d3_ng_ml")} error={errors.vit_d3_ng_ml?.message} placeholder="22" step="0.1" />
+            <MetricInput label="Waist (inch)" registration={register("waist_inch")} error={errors.waist_inch?.message} placeholder="32" step="0.1" />
+            <MetricInput label="Hip (inch)" registration={register("hip_inch")} error={errors.hip_inch?.message} placeholder="38" step="0.1" />
+            <MetricInput label="Waist-hip ratio" registration={register("waist_hip_ratio")} error={errors.waist_hip_ratio?.message} placeholder="Auto" step="0.001" readOnly value={waistHipRatio} />
+          </div>
+
+          {error ? (
+            <div className="mt-6 flex gap-3 rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <p>{error}</p>
             </div>
-            <MetricInput label="Cycle length (days)" registration={register("cycleLength")} error={errors.cycleLength?.message} placeholder="28" />
-          </div>
-
-          <div className="mt-5 grid gap-4 sm:grid-cols-2">
-            <YesNoField label="Irregular cycle" name="irregularCycle" register={register} error={errors.irregularCycle?.message} />
-            <YesNoField label="Recent weight gain" name="weightGain" register={register} error={errors.weightGain?.message} />
-            <YesNoField label="Excess hair growth" name="hairGrowth" register={register} error={errors.hairGrowth?.message} />
-            <YesNoField label="Skin darkening" name="skinDarkening" register={register} error={errors.skinDarkening?.message} />
-            <YesNoField label="Pimples/acne" name="pimples" register={register} error={errors.pimples?.message} />
-          </div>
-
-          <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <MetricInput label="Fast food / week" registration={register("fastFoodFrequency")} error={errors.fastFoodFrequency?.message} placeholder="3" />
-            <MetricInput label="Exercise / week" registration={register("exerciseFrequency")} error={errors.exerciseFrequency?.message} placeholder="4" />
-            <MetricInput label="Sleep hours" registration={register("sleepHours")} error={errors.sleepHours?.message} placeholder="7.5" step="0.1" />
-            <MetricInput label="Stress level (1-10)" registration={register("stressLevel")} error={errors.stressLevel?.message} placeholder="5" />
-          </div>
+          ) : null}
 
           <button
             type="submit"
             disabled={isSubmitting}
             className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-secondary px-4 py-3 text-sm font-bold text-white shadow-md shadow-primary/15 transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-70"
           >
-            <BrainCircuit className="h-4 w-4" />
-            Estimate PCOS risk
+            {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <BrainCircuit className="h-4 w-4" />}
+            {isSubmitting ? "Estimating risk..." : "Estimate PCOS risk"}
           </button>
         </form>
 
@@ -354,11 +465,11 @@ export default function PcosRiskDashboardPage() {
 
               <span
                 className={cn(
-                  "mt-4 rounded-full border bg-white/15 px-3 py-1.5 text-xs font-black backdrop-blur",
-                  result ? riskTone[result.level] : "border-white/25 text-white"
+                  "mt-4 rounded-full border px-3 py-1.5 text-xs font-black backdrop-blur",
+                  result ? riskTone[result.risk_level] : "border-white/25 bg-white/15 text-white"
                 )}
               >
-                {result?.level ?? "Awaiting assessment"}
+                {result?.risk_level ?? "Awaiting assessment"}
               </span>
             </div>
           </div>
@@ -366,74 +477,60 @@ export default function PcosRiskDashboardPage() {
           <div className="glass-card rounded-3xl border border-border/60 p-6 shadow-sm">
             <div className="flex items-center gap-2">
               <ShieldAlert className="h-5 w-5 text-primary" />
-              <h3 className="text-lg font-black text-foreground">Recommendations</h3>
+              <h3 className="text-lg font-black text-foreground">ML response</h3>
             </div>
-            <div className="mt-4 space-y-3">
-              {(result?.recommendations ?? ["Complete the form to generate tailored mock recommendations."]).map((item) => (
-                <p key={item} className="rounded-2xl border border-border/60 bg-muted/20 p-3 text-xs leading-relaxed text-muted-foreground">
-                  {item}
+            <p className="mt-4 rounded-2xl border border-border/60 bg-muted/20 p-4 text-sm leading-relaxed text-muted-foreground">
+              {result?.message ?? "Submit the assessment to receive a model-backed result."}
+            </p>
+            {result ? (
+              <div className="mt-4 flex gap-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4">
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                <p className="text-xs leading-relaxed text-muted-foreground">
+                  Assessment completed successfully from the ML service.
                 </p>
-              ))}
-            </div>
+              </div>
+            ) : null}
           </div>
         </aside>
       </section>
 
       <section className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
         <div className="glass-card rounded-3xl border border-border/60 p-6 shadow-sm">
-          <h3 className="text-lg font-black text-foreground">Contributing factors</h3>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Factor weights are placeholders for future ML-backed explanation.
-          </p>
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-primary" />
+            <h3 className="text-lg font-black text-foreground">Top contributing factors</h3>
+          </div>
 
           <div className="mt-5 grid gap-4 md:grid-cols-2">
-            {PCOS_BASE_FACTORS.map((factor, index) => (
-              <FactorCard
-                key={factor.label}
-                label={factor.label}
-                description={factor.description}
-                value={factorValues[index]}
-                icon={factorIcons[index]}
-              />
-            ))}
+            {result?.top_contributing_factors?.length ? (
+              result.top_contributing_factors.map((factor) => (
+                <FactorRow key={factor.feature} {...factor} />
+              ))
+            ) : (
+              <p className="rounded-2xl border border-border/60 bg-muted/20 p-4 text-sm text-muted-foreground md:col-span-2">
+                Model explanation will appear after a successful prediction.
+              </p>
+            )}
           </div>
         </div>
 
         <div className="glass-card rounded-3xl border border-border/60 p-6 shadow-sm">
           <div className="flex items-center gap-2">
             <HeartPulse className="h-5 w-5 text-primary" />
-            <h3 className="text-lg font-black text-foreground">Suggested next actions</h3>
+            <h3 className="text-lg font-black text-foreground">Recommendation</h3>
           </div>
-          <div className="mt-4 space-y-3">
-            {(result?.nextActions ?? ["Submit the assessment to see suggested next actions."]).map((item) => (
-              <div key={item} className="flex gap-3 rounded-2xl border border-border/60 bg-card p-3">
-                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
-                <p className="text-xs leading-relaxed text-muted-foreground">{item}</p>
-              </div>
-            ))}
+          <p className="mt-4 rounded-2xl border border-border/60 bg-card p-4 text-sm leading-relaxed text-muted-foreground">
+            {result?.recommendation ?? "Recommendations from the ML service will appear here."}
+          </p>
+          <div className="mt-4 flex gap-3 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4">
+            <Activity className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+            <p className="text-xs leading-relaxed text-muted-foreground">
+              {result?.disclaimer ?? "The prediction output is not a medical diagnosis."}
+            </p>
           </div>
         </div>
       </section>
 
-      <section className="glass-card rounded-3xl border border-border/60 p-6 shadow-sm">
-        <div className="mb-5 flex items-center gap-2">
-          <Activity className="h-5 w-5 text-primary" />
-          <h3 className="text-lg font-black text-foreground">Health tips</h3>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {PCOS_HEALTH_TIPS.map((tip, index) => {
-            const icons = [CalendarDays, Activity, Moon, Utensils];
-            const Icon = icons[index];
-            return (
-              <div key={tip} className="rounded-3xl border border-border/60 bg-card p-5 shadow-sm">
-                <Icon className="h-5 w-5 text-primary" />
-                <p className="mt-3 text-xs leading-relaxed text-muted-foreground">{tip}</p>
-              </div>
-            );
-          })}
-        </div>
-      </section>
     </div>
   );
 }
