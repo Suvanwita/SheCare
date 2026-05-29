@@ -1,15 +1,11 @@
 "use client";
 
-import React, { useEffect, useState, useSyncExternalStore } from "react";
+import React, { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import DashboardSidebar from "./DashboardSidebar";
 import DashboardTopbar from "./DashboardTopbar";
 import { getDashboardPageTitle } from "../../constants/navigation";
-import { isMockAuthenticated, logoutMock } from "../../lib/mockAuth";
-
-const subscribeToAuth = () => () => {};
-const getAuthSnapshot = () => isMockAuthenticated();
-const getServerAuthSnapshot = () => false;
+import { getCurrentUser, logout, type AuthUser } from "../../lib/authApi";
 
 interface DashboardShellProps {
   children: React.ReactNode;
@@ -19,24 +15,43 @@ export default function DashboardShell({ children }: DashboardShellProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const isAuthenticated = useSyncExternalStore(
-    subscribeToAuth,
-    getAuthSnapshot,
-    getServerAuthSnapshot
-  );
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [authStatus, setAuthStatus] = useState<"checking" | "authenticated" | "unauthenticated">("checking");
 
   useEffect(() => {
-    if (!isAuthenticated) {
-      router.replace("/login");
-    }
-  }, [isAuthenticated, router]);
+    let active = true;
 
-  const handleLogout = () => {
-    logoutMock();
+    getCurrentUser()
+      .then((currentUser) => {
+        if (!active) {
+          return;
+        }
+
+        setUser(currentUser);
+        setAuthStatus("authenticated");
+      })
+      .catch(() => {
+        if (!active) {
+          return;
+        }
+
+        setAuthStatus("unauthenticated");
+        router.replace("/login");
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [router]);
+
+  const handleLogout = async () => {
+    await logout();
+    setUser(null);
+    setAuthStatus("unauthenticated");
     router.replace("/login");
   };
 
-  if (!isAuthenticated) {
+  if (authStatus !== "authenticated" || !user) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-background text-foreground">
         <div className="glass-card rounded-3xl border border-border/60 p-6 text-center shadow-lg shadow-foreground/5">
@@ -58,6 +73,7 @@ export default function DashboardShell({ children }: DashboardShellProps) {
       <div className="flex min-w-0 flex-1 flex-col">
         <DashboardTopbar
           title={getDashboardPageTitle(pathname)}
+          user={user}
           onMenuToggle={() => setSidebarOpen(true)}
           onLogout={handleLogout}
         />

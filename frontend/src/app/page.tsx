@@ -1,29 +1,29 @@
 "use client";
 
-import React, { useState, useEffect, useSyncExternalStore } from "react";
+import React, { useEffect, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useTheme } from "next-themes";
-import { motion, AnimatePresence } from "framer-motion";
-import type { Variants } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import {
-  Sparkles,
-  Sun,
-  Moon,
-  Menu,
-  X,
-  Heart,
-  Droplet,
-  ClipboardList,
+  Activity,
+  ArrowRight,
+  BarChart3,
   Bell,
   CalendarCheck,
+  CalendarDays,
+  CheckCircle2,
+  ClipboardList,
   FileText,
-  BrainCircuit,
-  ArrowRight,
-  ShieldCheck,
+  Heart,
+  HeartPulse,
   Lock,
-  UserCheck,
-  ShieldAlert,
-  HeartHandshake
+  Menu,
+  Moon,
+  ShieldCheck,
+  Sparkles,
+  Stethoscope,
+  Sun,
+  X,
 } from "lucide-react";
 import { LANDING_NAV_ITEMS } from "../constants";
 import { cn } from "../lib/utils";
@@ -31,6 +31,78 @@ import { cn } from "../lib/utils";
 const subscribeToMount = () => () => {};
 const getClientSnapshot = () => true;
 const getServerSnapshot = () => false;
+
+const featureCards = [
+  {
+    icon: CalendarDays,
+    title: "Cycle Tracker",
+    description: "Track period dates, flow intensity, trends, and predicted windows.",
+    href: "/dashboard/cycle",
+    color: "text-rose-500 bg-rose-500/10",
+  },
+  {
+    icon: HeartPulse,
+    title: "Health Logs",
+    description: "Capture symptoms, mood, sleep, hydration, weight, and notes.",
+    href: "/dashboard/health-logs",
+    color: "text-emerald-500 bg-emerald-500/10",
+  },
+  {
+    icon: Bell,
+    title: "Reminders",
+    description: "Manage medicines, appointments, cycle reminders, and check-ins.",
+    href: "/dashboard/reminders",
+    color: "text-amber-500 bg-amber-500/10",
+  },
+  {
+    icon: CalendarCheck,
+    title: "Appointments",
+    description: "Search doctors, book visits, and organize upcoming consultations.",
+    href: "/dashboard/appointments",
+    color: "text-sky-500 bg-sky-500/10",
+  },
+  {
+    icon: FileText,
+    title: "Medical Reports",
+    description: "Upload, filter, preview, and organize health documents.",
+    href: "/dashboard/reports",
+    color: "text-violet-500 bg-violet-500/10",
+  },
+  {
+    icon: BarChart3,
+    title: "Analytics & PCOS Risk",
+    description: "Visualize wellness patterns and run informational risk assessments.",
+    href: "/dashboard/analytics",
+    color: "text-pink-500 bg-pink-500/10",
+  },
+];
+
+const journeySteps = [
+  "Log daily health signals",
+  "Review patterns in one place",
+  "Prepare better doctor visits",
+  "Act on gentle reminders",
+];
+
+const previewRows = [
+  { label: "Cycle day", value: "22", accent: "bg-rose-500" },
+  { label: "Sleep score", value: "82%", accent: "bg-indigo-500" },
+  { label: "Hydration", value: "1.8L", accent: "bg-sky-500" },
+];
+
+const revealUp = {
+  hidden: { opacity: 0, y: 22 },
+  show: { opacity: 1, y: 0 },
+};
+
+const staggerGrid = {
+  hidden: {},
+  show: {
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+};
 
 export default function LandingPage() {
   const { theme, setTheme } = useTheme();
@@ -43,600 +115,441 @@ export default function LandingPage() {
   );
 
   useEffect(() => {
-    const handleScroll = () => {
-      setScrolled(window.scrollY > 20);
-    };
+    const handleScroll = () => setScrolled(window.scrollY > 16);
+    handleScroll();
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  const fadeInUp: Variants = {
-    hidden: { opacity: 0, y: 30 },
-    show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 80, damping: 15 } }
-  };
-
-  const staggerContainer: Variants = {
-    hidden: { opacity: 0 },
-    show: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1
-      }
-    }
-  };
-
-  const featureCards = [
-    {
-      icon: Heart,
-      color: "text-rose-500 bg-rose-500/10",
-      title: "Cycle & Menstrual Tracking",
-      description: "Log cycle dates, visualize phases (Menstrual, Follicular, Ovulatory, Luteal) in a circular radial calendar, and get future flow predictions."
-    },
-    {
-      icon: ClipboardList,
-      color: "text-violet-500 bg-violet-500/10",
-      title: "Daily Symptom Journaling",
-      description: "Log symptoms, severity, and mental states using Zod-validated schemas. Trace triggers, cramps, fatigue, and log historical self-care steps."
-    },
-    {
-      icon: Bell,
-      color: "text-amber-500 bg-amber-500/10",
-      title: "Medication & Pill Reminders",
-      description: "Never miss vitamins, supplements, or prescriptions with structured schedule notifications custom-synced to your active cycle phases."
-    },
-    {
-      icon: CalendarCheck,
-      color: "text-sky-500 bg-sky-500/10",
-      title: "Doctor Appointments Manager",
-      description: "Store schedules, list notes for consults, and keep appointment timelines synced directly to prevent forgotten visits."
-    },
-    {
-      icon: FileText,
-      color: "text-pink-500 bg-pink-500/10",
-      title: "Structured Medical Reports",
-      description: "Save health documents, lab parameters, and scan reviews securely in a digital format for rapid reference during checkups."
-    },
-    {
-      icon: BrainCircuit,
-      color: "text-emerald-500 bg-emerald-500/10",
-      title: "Intelligent PCOS Risk insights",
-      description: "Gain self-assessment predictions, track clinical markers, and obtain educational guidelines to identify early potential signs of PCOS."
-    }
-  ];
-
-  const steps = [
-    {
-      num: "01",
-      title: "Log Daily Health Vitals",
-      desc: "Record sleep quality, mood, hydration levels, activity metrics, and localized physical indicators."
-    },
-    {
-      num: "02",
-      title: "Get Smart Scheduling Reminders",
-      desc: "Receive prompt alerts for clinical checks, daily prescriptions, physical workouts, and hydration targets."
-    },
-    {
-      num: "03",
-      title: "Visualize Cycle Trends",
-      desc: "Observe detailed Recharts analysis charts correlating cycle phases with your sleep quality and stress levels."
-    },
-    {
-      num: "04",
-      title: "Check Health Risk Insights",
-      desc: "Analyze symptoms to predict health anomalies and sync reports for preventative consultations."
-    }
-  ];
-
-  const privacyFeatures = [
-    {
-      icon: ShieldCheck,
-      title: "Encrypted Secure Records",
-      desc: "Your records, logs, and notes are encrypted at rest and in transit using bank-grade cryptographic protocols."
-    },
-    {
-      icon: UserCheck,
-      title: "Role-Based Access Delegation",
-      desc: "Explicitly share specific reports or logs with your gynecologist while keeping other personal files locked."
-    },
-    {
-      icon: Lock,
-      title: "Complete User Data Ownership",
-      desc: "No selling of your personal health data. Export all reports or delete your entire database instantly."
-    },
-    {
-      icon: HeartHandshake,
-      title: "HIPAA-Friendly Architecture",
-      desc: "Built from the ground up to respect federal healthcare confidentiality rules, prioritizing private health safety."
-    }
-  ];
+  const toggleTheme = () => setTheme(theme === "dark" ? "light" : "dark");
 
   return (
-    <div className="relative min-h-screen overflow-x-hidden bg-background font-sans transition-colors duration-200">
-      
-      {/* Dynamic light glowing background effects */}
-      <div className="absolute top-0 right-0 -z-10 h-[600px] w-[600px] rounded-full blur-3xl opacity-20 bg-gradient-to-tr from-primary/30 to-secondary/30" />
-      <div className="absolute top-[800px] left-0 -z-10 h-[500px] w-[500px] rounded-full blur-3xl opacity-15 bg-gradient-to-br from-secondary/20 to-primary/20" />
-
-      {/* 1. HEADER / NAVIGATION */}
+    <div className="min-h-screen bg-background text-foreground">
       <header
         className={cn(
-          "sticky top-0 z-50 w-full transition-all duration-300 border-b border-transparent",
+          "sticky top-0 z-50 border-b transition-all duration-300",
           scrolled
-            ? "bg-background/80 backdrop-blur-md border-border/40 shadow-sm"
-            : "bg-transparent"
+            ? "border-border/70 bg-background/85 shadow-sm backdrop-blur-xl"
+            : "border-transparent bg-background/70 backdrop-blur-md"
         )}
       >
-        <div className="max-w-7xl mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
-          {/* Logo Branding */}
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           <Link href="/" className="flex items-center gap-2" aria-label="SheCare home">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-primary to-secondary text-white shadow-md shadow-primary/20">
-              <Sparkles className="h-5 w-5 fill-white/20" />
+              <Sparkles className="h-5 w-5" />
             </div>
-            <span className="text-xl font-bold tracking-tight bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-              SheCare
-            </span>
+            <span className="text-xl font-black tracking-tight text-foreground">SheCare</span>
           </Link>
 
-          {/* Desktop Navigation Links */}
-          <nav className="hidden md:flex items-center gap-6 text-sm font-semibold text-muted-foreground">
-            {LANDING_NAV_ITEMS.map((item) => (
+          <nav className="hidden items-center gap-1 rounded-2xl border border-border/70 bg-card/70 p-1 text-xs font-bold text-muted-foreground md:flex">
+            {LANDING_NAV_ITEMS.slice(0, 3).map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
-                className="hover:text-foreground transition-colors duration-150"
+                className="rounded-xl px-3 py-2 transition-colors hover:bg-muted hover:text-foreground"
               >
                 {item.title}
               </Link>
             ))}
           </nav>
 
-          {/* Action Bar (Theme and CTA) */}
-          <div className="hidden md:flex items-center gap-3">
+          <div className="hidden items-center gap-2 md:flex">
             {mounted && (
               <button
-                onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-                className="flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-card hover:bg-muted text-foreground transition-all cursor-pointer"
+                onClick={toggleTheme}
+                className="flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-card text-foreground transition hover:bg-muted"
                 aria-label="Toggle theme"
               >
-                {theme === "dark" ? <Sun className="h-5 w-5 text-amber-500" /> : <Moon className="h-5 w-5 text-indigo-600" />}
+                {theme === "dark" ? (
+                  <Sun className="h-5 w-5 text-amber-500" />
+                ) : (
+                  <Moon className="h-5 w-5 text-indigo-600" />
+                )}
               </button>
             )}
-
             <Link
-              href="/dashboard"
-              className="px-5 py-2.5 rounded-xl font-bold text-xs bg-foreground text-background hover:opacity-90 shadow-md transition-all active:scale-97 cursor-pointer"
+              href="/login"
+              className="rounded-xl border border-border bg-card px-4 py-2.5 text-xs font-bold text-foreground transition hover:bg-muted"
+            >
+              Login
+            </Link>
+            <Link
+              href="/register"
+              className="rounded-xl bg-foreground px-4 py-2.5 text-xs font-bold text-background transition hover:opacity-90"
             >
               Get Started
             </Link>
           </div>
 
-          {/* Mobile Hamburguer menu */}
           <div className="flex items-center gap-2 md:hidden">
             {mounted && (
               <button
-                onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+                onClick={toggleTheme}
                 className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card text-foreground"
+                aria-label="Toggle theme"
               >
-                {theme === "dark" ? <Sun className="h-4.5 w-4.5 text-amber-500" /> : <Moon className="h-4.5 w-4.5 text-indigo-600" />}
+                {theme === "dark" ? (
+                  <Sun className="h-4 w-4 text-amber-500" />
+                ) : (
+                  <Moon className="h-4 w-4 text-indigo-600" />
+                )}
               </button>
             )}
-            
             <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="rounded-lg p-2 text-muted-foreground hover:bg-muted"
+              onClick={() => setMobileMenuOpen((open) => !open)}
+              className="rounded-lg border border-border bg-card p-2 text-muted-foreground"
+              aria-label="Toggle navigation menu"
             >
               {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
           </div>
         </div>
 
-        {/* Mobile Navigation Drawer */}
         <AnimatePresence>
           {mobileMenuOpen && (
             <motion.div
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
-              className="border-b border-border bg-card px-4 py-4 space-y-3.5 flex flex-col md:hidden text-sm font-semibold text-muted-foreground"
+              className="border-t border-border bg-card px-4 py-4 md:hidden"
             >
-              {LANDING_NAV_ITEMS.map((item, index) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={cn(
-                    "hover:text-foreground py-1",
-                    index === LANDING_NAV_ITEMS.length - 1 && "border-t border-border pt-3.5"
-                  )}
-                >
-                  {item.title}
-                </Link>
-              ))}
-              
-              <Link
-                href="/dashboard"
-                onClick={() => setMobileMenuOpen(false)}
-                className="w-full py-2.5 rounded-xl font-bold text-xs bg-foreground text-background text-center flex items-center justify-center"
-              >
-                Get Started
-              </Link>
+              <div className="flex flex-col gap-2 text-sm font-bold text-muted-foreground">
+                {[...LANDING_NAV_ITEMS.slice(0, 3), { title: "Login", href: "/login" }, { title: "Register", href: "/register" }].map((item) => (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="rounded-xl px-3 py-2 hover:bg-muted hover:text-foreground"
+                  >
+                    {item.title}
+                  </Link>
+                ))}
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
       </header>
 
-      {/* 2. HERO SECTION */}
-      <section className="relative pt-12 pb-20 md:pt-24 md:pb-32 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-          
-          {/* Left Hero Column */}
-          <motion.div
-            initial={{ opacity: 0, x: -35 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5 }}
-            className="lg:col-span-7 space-y-6 text-center lg:text-left"
-          >
-            <div className="inline-flex items-center gap-1.5 text-xs font-bold text-primary bg-primary/10 px-3 py-1.5 rounded-full border border-primary/15 shadow-sm">
-              <Sparkles className="h-4 w-4 fill-primary/10 animate-pulse" /> Unified Wellness Ecosystem
-            </div>
-
-            <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold tracking-tight font-display leading-[1.1] text-foreground">
-              Personalized women’s health tracking,{" "}
-              <span className="bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-                reminders, and risk insights.
-              </span>
-            </h1>
-
-            <p className="text-base sm:text-lg text-muted-foreground leading-relaxed max-w-2xl mx-auto lg:mx-0">
-              SheCare is a comprehensive self-care partner. Securely trace your menstrual cycle phases, map symptoms, trigger smart medical and prescription reminders, coordinate appointments, and receive intelligent assessment analytics for PCOS risk markers.
-            </p>
-
-            {/* CTA Controls */}
-            <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 pt-2">
-              <Link
-                href="/dashboard"
-                className="w-full sm:w-auto px-7 py-3.5 rounded-2xl font-bold text-sm bg-gradient-to-r from-primary to-secondary text-white hover:opacity-95 shadow-md shadow-primary/15 flex items-center justify-center gap-2 group transition-all"
-              >
-                Start Tracking
-                <ArrowRight className="h-4.5 w-4.5 transition-transform group-hover:translate-x-1" />
-              </Link>
-              
-              <Link
-                href="/dashboard"
-                className="w-full sm:w-auto px-7 py-3.5 rounded-2xl font-bold text-sm border border-border bg-card text-foreground hover:bg-muted/50 flex items-center justify-center gap-2 transition-colors shadow-sm"
-              >
-                View Demo Dashboard
-              </Link>
-            </div>
-          </motion.div>
-
-          {/* Right Hero Column (Floating visual cards stack representing app stats) */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95, x: 35 }}
-            animate={{ opacity: 1, scale: 1, x: 0 }}
-            transition={{ duration: 0.55, delay: 0.1 }}
-            className="lg:col-span-5 relative h-[360px] sm:h-[420px] flex items-center justify-center select-none"
-          >
-            {/* Ambient glowing radial blur */}
-            <div className="absolute inset-0 -z-10 bg-gradient-to-tr from-primary/10 via-secondary/15 to-transparent rounded-full blur-3xl scale-90" />
-
-            {/* Float Card 1: Cycle Tracker Dial Widget */}
+      <main>
+        <section className="px-4 pb-16 pt-10 sm:px-6 md:pb-20 md:pt-16 lg:px-8">
+          <div className="mx-auto grid max-w-7xl items-center gap-10 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
             <motion.div
-              animate={{ y: [0, -10, 0] }}
-              transition={{ repeat: Infinity, duration: 5, ease: "easeInOut" }}
-              className="absolute top-4 left-4 w-72 glass-card rounded-3xl p-5 border border-border/50 shadow-xl z-20"
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.45 }}
+              className="text-center lg:text-left"
             >
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] text-rose-500 font-bold uppercase tracking-wider bg-rose-500/10 px-2 py-0.5 rounded-full border border-rose-500/15">
-                  Luteal Phase
+              <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1.5 text-xs font-black text-primary">
+                <Heart className="h-4 w-4" />
+                One calm workspace for women’s health
+              </div>
+
+              <h1 className="mt-6 font-display text-4xl font-black tracking-tight text-foreground sm:text-5xl lg:text-6xl">
+                SheCare
+                <span className="mt-2 block bg-gradient-to-r from-primary via-secondary to-rose-500 bg-clip-text text-transparent">
+                  turns daily signals into care-ready clarity.
                 </span>
-                <span className="text-[10px] text-muted-foreground font-medium">Day 22 of 28</span>
-              </div>
-              <div className="mt-4 flex items-center gap-4">
-                <div className="h-14 w-14 shrink-0 rounded-full border-4 border-dashed border-primary flex items-center justify-center bg-primary/5 text-primary text-xs font-black shadow-inner shadow-primary/5">
-                  22
-                </div>
-                <div className="space-y-0.5">
-                  <h4 className="text-sm font-bold text-foreground">6 Days Remaining</h4>
-                  <p className="text-[10px] text-muted-foreground leading-relaxed">Swap heavy workouts for soft Pilates today.</p>
-                </div>
-              </div>
-            </motion.div>
+              </h1>
 
-            {/* Float Card 2: Hydration Analytics Mini Card */}
-            <motion.div
-              animate={{ y: [0, 8, 0] }}
-              transition={{ repeat: Infinity, duration: 4.5, ease: "easeInOut" }}
-              className="absolute bottom-6 right-2 w-64 glass-card rounded-2xl p-4 border border-border/50 shadow-xl z-10"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-sky-500/10 text-sky-500">
-                    <Droplet className="h-4 w-4 fill-sky-500/10" />
-                  </div>
-                  <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-wide">Hydration</span>
-                </div>
-                <span className="text-[9px] text-emerald-500 font-bold bg-emerald-500/10 px-1.5 py-0.5 rounded-md uppercase">72% Done</span>
-              </div>
-              <div className="mt-3 space-y-1">
-                <div className="flex justify-between text-xs font-bold">
-                  <span>1.8L</span>
-                  <span className="text-muted-foreground font-medium text-[10px]">Goal: 2.5L</span>
-                </div>
-                <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
-                  <div className="h-full bg-sky-500 rounded-full" style={{ width: "72%" }} />
-                </div>
-              </div>
-            </motion.div>
+              <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-muted-foreground sm:text-lg lg:mx-0">
+                Track cycles, symptoms, reports, reminders, appointments, analytics, and PCOS risk
+                checks from a single private dashboard.
+              </p>
 
-            {/* Float Card 3: Prescriptions / Reminders Mini Widget */}
-            <motion.div
-              animate={{ x: [0, -6, 0] }}
-              transition={{ repeat: Infinity, duration: 6, ease: "easeInOut" }}
-              className="absolute right-6 top-1/3 w-60 glass-card rounded-2xl p-3.5 border border-border/50 shadow-lg z-0"
-            >
-              <div className="flex items-center gap-2">
-                <div className="flex h-6.5 w-6.5 items-center justify-center rounded-md bg-amber-500/10 text-amber-500">
-                  <Bell className="h-3.5 w-3.5" />
-                </div>
-                <div className="text-[10px]">
-                  <p className="font-bold">Vitamin D3 + Magnesium</p>
-                  <p className="text-[9px] text-muted-foreground mt-0.5">Alert set for 8:00 PM</p>
-                </div>
-              </div>
-            </motion.div>
-
-          </motion.div>
-
-        </div>
-      </section>
-
-      {/* 3. FEATURE SECTION */}
-      <section id="features" className="py-20 md:py-28 px-4 sm:px-6 lg:px-8 bg-muted/20 border-y border-border/30">
-        <div className="max-w-7xl mx-auto space-y-16">
-          
-          {/* Header */}
-          <div className="text-center max-w-2xl mx-auto space-y-3">
-            <span className="text-xs font-bold text-primary uppercase tracking-widest block">Core Ecosystem</span>
-            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight font-display text-foreground">
-              Designed with complete modularity for your health.
-            </h2>
-            <p className="text-xs sm:text-sm text-muted-foreground max-w-xl mx-auto">
-              Every detail is meticulously crafted to support medical logs, predictions, tracking patterns, and confidential reminders.
-            </p>
-          </div>
-
-          {/* Cards Grid */}
-          <motion.div
-            variants={staggerContainer}
-            initial="hidden"
-            whileInView="show"
-            viewport={{ once: true, margin: "-100px" }}
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-          >
-            {featureCards.map((feat, index) => {
-              const Icon = feat.icon;
-              return (
-                <motion.div
-                  key={index}
-                  variants={fadeInUp}
-                  className="glass-card rounded-3xl p-6 border border-border/50 hover:border-primary/25 hover:shadow-lg transition-all duration-300 group flex flex-col justify-between"
+              <div className="mt-7 flex flex-col items-center gap-3 sm:flex-row lg:justify-start">
+                <Link
+                  href="/register"
+                  className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-secondary px-6 py-3.5 text-sm font-black text-white shadow-lg shadow-primary/15 transition hover:opacity-95 sm:w-auto"
                 >
-                  <div className="space-y-4">
-                    <div className={cn("flex h-12 w-12 items-center justify-center rounded-2xl text-foreground shadow-sm transition-transform duration-300 group-hover:scale-105", feat.color)}>
-                      <Icon className="h-6 w-6" />
-                    </div>
-                    <div className="space-y-1.5">
-                      <h3 className="text-lg font-bold text-foreground/90 font-sans group-hover:text-primary transition-colors duration-200">
-                        {feat.title}
-                      </h3>
-                      <p className="text-xs text-muted-foreground leading-relaxed">
-                        {feat.description}
-                      </p>
+                  Create Account
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+                <Link
+                  href="/login"
+                  className="flex w-full items-center justify-center gap-2 rounded-2xl border border-border bg-card px-6 py-3.5 text-sm font-black text-foreground shadow-sm transition hover:bg-muted sm:w-auto"
+                >
+                  Login
+                </Link>
+              </div>
+            </motion.div>
+
+            <motion.div
+              initial={{ opacity: 0, y: 28 }}
+              animate={{ opacity: 1, y: [0, -8, 0] }}
+              transition={{ duration: 0.5, delay: 0.1 }}
+              whileHover={{ y: -6, rotateX: 1.5, rotateY: -1.5 }}
+              className="rounded-[2rem] border border-border/70 bg-card p-3 shadow-2xl shadow-foreground/5"
+            >
+              <div className="overflow-hidden rounded-[1.5rem] border border-border/70 bg-background">
+                <div className="flex items-center justify-between border-b border-border/70 bg-muted/30 px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    {["bg-rose-400", "bg-amber-400", "bg-emerald-400"].map((color, index) => (
+                      <motion.span
+                        key={color}
+                        animate={{ scale: [1, 1.25, 1] }}
+                        transition={{
+                          duration: 1.8,
+                          delay: index * 0.25,
+                          repeat: Infinity,
+                          repeatDelay: 2.4,
+                        }}
+                        className={cn("h-2.5 w-2.5 rounded-full", color)}
+                      />
+                    ))}
+                  </div>
+                  <span className="text-xs font-bold text-muted-foreground">Live dashboard preview</span>
+                </div>
+
+                <div className="grid gap-4 p-4 sm:grid-cols-[0.75fr_1fr]">
+                  <div className="rounded-3xl bg-gradient-to-br from-primary to-secondary p-5 text-white">
+                    <p className="text-xs font-bold uppercase text-white/75">Current cycle</p>
+                    <motion.p
+                      initial={{ opacity: 0, scale: 0.85 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: 0.35, type: "spring", stiffness: 130, damping: 12 }}
+                      className="mt-3 text-5xl font-black"
+                    >
+                      22
+                    </motion.p>
+                    <p className="mt-1 text-sm font-semibold text-white/85">Day of 28</p>
+                    <div className="mt-6 h-2 overflow-hidden rounded-full bg-white/25">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: "78%" }}
+                        transition={{ delay: 0.5, duration: 1.1, ease: "easeOut" }}
+                        className="h-full rounded-full bg-white"
+                      />
                     </div>
                   </div>
-                  <div className="pt-4 flex items-center text-[11px] text-primary font-bold opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                    Learn more <ArrowRight className="h-3 w-3 ml-1" />
-                  </div>
+
+                  <motion.div
+                    variants={staggerGrid}
+                    initial="hidden"
+                    animate="show"
+                    className="grid gap-3"
+                  >
+                    {previewRows.map((row) => (
+                      <motion.div
+                        key={row.label}
+                        variants={revealUp}
+                        transition={{ type: "spring", stiffness: 120, damping: 16 }}
+                        className="rounded-2xl border border-border/70 bg-card p-4"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <motion.span
+                              animate={{ opacity: [0.55, 1, 0.55] }}
+                              transition={{ duration: 2, repeat: Infinity }}
+                              className={cn("h-2.5 w-2.5 rounded-full", row.accent)}
+                            />
+                            <span className="text-xs font-bold uppercase text-muted-foreground">{row.label}</span>
+                          </div>
+                          <span className="text-lg font-black text-foreground">{row.value}</span>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </motion.div>
+                </div>
+
+                <motion.div
+                  variants={staggerGrid}
+                  initial="hidden"
+                  animate="show"
+                  className="grid gap-4 border-t border-border/70 p-4 md:grid-cols-3"
+                >
+                  <motion.div variants={revealUp} className="rounded-2xl border border-border/70 bg-card p-4">
+                    <ClipboardList className="h-5 w-5 text-primary" />
+                    <p className="mt-3 text-sm font-black">Symptoms</p>
+                    <p className="mt-1 text-xs text-muted-foreground">Cramps, fatigue, acne</p>
+                  </motion.div>
+                  <motion.div variants={revealUp} className="rounded-2xl border border-border/70 bg-card p-4">
+                    <Stethoscope className="h-5 w-5 text-secondary" />
+                    <p className="mt-3 text-sm font-black">Next visit</p>
+                    <p className="mt-1 text-xs text-muted-foreground">Dr. Meera, Fri 11:30</p>
+                  </motion.div>
+                  <motion.div variants={revealUp} className="rounded-2xl border border-border/70 bg-card p-4">
+                    <Activity className="h-5 w-5 text-emerald-500" />
+                    <p className="mt-3 text-sm font-black">Wellness score</p>
+                    <p className="mt-1 text-xs text-muted-foreground">84, improving</p>
+                  </motion.div>
                 </motion.div>
-              );
-            })}
-          </motion.div>
-
-        </div>
-      </section>
-
-      {/* 4. HOW IT WORKS SECTION */}
-      <section id="how-it-works" className="py-20 md:py-28 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto space-y-16">
-          
-          {/* Header */}
-          <div className="text-center max-w-2xl mx-auto space-y-3">
-            <span className="text-xs font-bold text-secondary uppercase tracking-widest block font-sans">Methodology</span>
-            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight font-display text-foreground font-sans">
-              Continuous care in four simple steps.
-            </h2>
-            <p className="text-xs sm:text-sm text-muted-foreground max-w-xl mx-auto">
-              How SheCare syncs parameters to construct self-care predictions, schedules, and reports.
-            </p>
+              </div>
+            </motion.div>
           </div>
+        </section>
 
-          {/* Steps Timeline Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 relative">
-            {steps.map((step, idx) => (
-              <motion.div
-                key={idx}
-                initial={{ opacity: 0, y: 25 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.4, delay: idx * 0.1 }}
-                className="relative space-y-3 p-5 rounded-2xl border border-border/40 bg-card hover:bg-muted/10 transition-colors"
-              >
-                {/* Horizontal connector line on desktop */}
-                {idx < 3 && (
-                  <div className="hidden lg:block absolute top-10 left-full w-full h-[1px] bg-gradient-to-r from-border to-transparent -z-10" />
-                )}
-
-                <span className="text-4xl font-black bg-gradient-to-br from-primary/20 to-secondary/35 bg-clip-text text-transparent block font-display">
-                  {step.num}
-                </span>
-                <h3 className="text-sm font-extrabold text-foreground/90">{step.title}</h3>
-                <p className="text-xs text-muted-foreground leading-relaxed">{step.desc}</p>
-              </motion.div>
-            ))}
-          </div>
-
-        </div>
-      </section>
-
-      {/* 5. PRIVACY & SECURITY SECTION */}
-      <section id="privacy" className="py-20 md:py-28 px-4 sm:px-6 lg:px-8 bg-muted/20 border-y border-border/30">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-          
-          {/* Left Grid: Trust Branding */}
-          <motion.div
-            initial={{ opacity: 0, x: -25 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
-            className="lg:col-span-5 space-y-6"
-          >
-            <div className="inline-flex items-center gap-1.5 text-[10px] font-bold text-emerald-500 bg-emerald-500/10 px-3 py-1.5 rounded-full border border-emerald-500/15 uppercase tracking-wide">
-              <ShieldCheck className="h-4 w-4" /> Military-Grade Secrecy
-            </div>
-            
-            <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight font-display text-foreground leading-tight">
-              Confidentiality is not an option. It is our core commitment.
-            </h2>
-            
-            <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-              We understand that reproductive health files and parameters represent the most private details. SheCare ensures your entries are sealed away, keeping you in complete control of whom you share them with.
-            </p>
-
-            <div className="p-4 rounded-2xl bg-card border border-border/80 flex items-start gap-3.5 shadow-sm">
-              <ShieldAlert className="h-6 w-6 text-primary mt-0.5 shrink-0" />
+        <section id="features" className="border-y border-border/60 bg-muted/20 px-4 py-16 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-7xl">
+            <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
               <div>
-                <h4 className="text-xs font-bold text-foreground">Zero Health-Data Commercialization</h4>
-                <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
-                  Unlike conventional period trackers, SheCare guarantees that your details will never be sold, packaged, or shared with commercial marketers.
-                </p>
+                <p className="text-xs font-black uppercase tracking-wide text-primary">Your health toolkit</p>
+                <h2 className="mt-2 max-w-2xl font-display text-3xl font-black tracking-tight text-foreground sm:text-4xl">
+                  Everything you need to track, plan, and understand your wellness.
+                </h2>
               </div>
+              <Link href="/dashboard" className="text-sm font-black text-primary hover:underline">
+                Explore dashboard
+              </Link>
             </div>
-          </motion.div>
 
-          {/* Right Grid: Security Cards */}
-          <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-5 select-none">
-            {privacyFeatures.map((pf, idx) => {
-              const Icon = pf.icon;
+            <motion.div
+              variants={staggerGrid}
+              initial="hidden"
+              whileInView="show"
+              viewport={{ once: true, margin: "-80px" }}
+              className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-3"
+            >
+              {featureCards.map((feature) => {
+                const Icon = feature.icon;
+                return (
+                  <motion.div
+                    key={feature.title}
+                    variants={revealUp}
+                    whileHover={{ y: -6, scale: 1.01 }}
+                    transition={{ type: "spring", stiffness: 180, damping: 18 }}
+                  >
+                    <Link
+                      href={feature.href}
+                      className="group block h-full rounded-3xl border border-border/70 bg-card p-5 shadow-sm transition hover:border-primary/30 hover:shadow-lg"
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <motion.div
+                          whileHover={{ rotate: -6, scale: 1.08 }}
+                          className={cn("flex h-11 w-11 items-center justify-center rounded-2xl", feature.color)}
+                        >
+                          <Icon className="h-5 w-5" />
+                        </motion.div>
+                        <ArrowRight className="h-4 w-4 text-muted-foreground transition group-hover:translate-x-1 group-hover:text-primary" />
+                      </div>
+                      <h3 className="mt-5 text-base font-black text-foreground">{feature.title}</h3>
+                      <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{feature.description}</p>
+                    </Link>
+                  </motion.div>
+                );
+              })}
+            </motion.div>
+          </div>
+        </section>
+
+        <section id="how-it-works" className="px-4 py-16 sm:px-6 lg:px-8">
+          <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[0.8fr_1.2fr] lg:items-center">
+            <div>
+              <p className="text-xs font-black uppercase tracking-wide text-secondary">How it works</p>
+              <h2 className="mt-2 font-display text-3xl font-black tracking-tight text-foreground sm:text-4xl">
+                A calmer loop for personal health tracking.
+              </h2>
+              <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
+                The interface is designed for repeated use: quick logging, readable trends,
+                practical reminders, and useful context before appointments.
+              </p>
+            </div>
+
+            <motion.div
+              variants={staggerGrid}
+              initial="hidden"
+              whileInView="show"
+              viewport={{ once: true, margin: "-80px" }}
+              className="grid gap-3 sm:grid-cols-2"
+            >
+              {journeySteps.map((step, index) => (
+                <motion.div
+                  key={step}
+                  variants={revealUp}
+                  whileHover={{ y: -4 }}
+                  className="rounded-3xl border border-border/70 bg-card p-5 shadow-sm"
+                >
+                  <span className="text-3xl font-black text-primary/25">0{index + 1}</span>
+                  <p className="mt-4 text-sm font-black text-foreground">{step}</p>
+                </motion.div>
+              ))}
+            </motion.div>
+          </div>
+        </section>
+
+        <section id="privacy" className="border-y border-border/60 bg-muted/20 px-4 py-16 sm:px-6 lg:px-8">
+          <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-3">
+            <div className="lg:col-span-1">
+              <p className="text-xs font-black uppercase tracking-wide text-emerald-500">Privacy first</p>
+              <h2 className="mt-2 font-display text-3xl font-black tracking-tight text-foreground">
+                Sensitive health data deserves a serious interface.
+              </h2>
+            </div>
+
+            {[
+              {
+                icon: ShieldCheck,
+                title: "Local mock auth for now",
+                desc: "Authentication stays frontend-only until the backend is intentionally added.",
+              },
+              {
+                icon: Lock,
+                title: "No backend calls",
+                desc: "Current dashboard pages use local state and mock data while the product shape matures.",
+              },
+            ].map((item) => {
+              const Icon = item.icon;
               return (
                 <motion.div
-                  key={idx}
-                  initial={{ opacity: 0, y: 20 }}
+                  key={item.title}
+                  initial={{ opacity: 0, y: 18 }}
                   whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.4, delay: idx * 0.1 }}
-                  className="p-5 rounded-2xl border border-border bg-card space-y-3.5 hover:shadow-md transition-shadow"
+                  viewport={{ once: true, margin: "-80px" }}
+                  whileHover={{ y: -4 }}
+                  className="rounded-3xl border border-border/70 bg-card p-6 shadow-sm"
                 >
-                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                    <Icon className="h-4.5 w-4.5" />
-                  </div>
-                  <h4 className="text-xs font-bold text-foreground">{pf.title}</h4>
-                  <p className="text-[11px] text-muted-foreground leading-relaxed">{pf.desc}</p>
+                  <Icon className="h-6 w-6 text-emerald-500" />
+                  <h3 className="mt-5 text-base font-black text-foreground">{item.title}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{item.desc}</p>
                 </motion.div>
               );
             })}
           </div>
+        </section>
 
-        </div>
-      </section>
-
-      {/* 6. CALL TO ACTION CONTAINER */}
-      <section className="py-20 md:py-28 px-4 sm:px-6 lg:px-8 text-center relative overflow-hidden">
-        {/* Glow behind */}
-        <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 -z-10 h-72 w-full rounded-full blur-3xl opacity-10 bg-gradient-to-r from-primary via-secondary to-transparent" />
-
-        <div className="max-w-4xl mx-auto space-y-8">
-          <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight font-display text-foreground leading-[1.15]">
-            Take charge of your wellness journey today.
-          </h2>
-          <p className="text-xs sm:text-base text-muted-foreground leading-relaxed max-w-xl mx-auto">
-            Get instant cycle predictions, log schedules, securely save diagnostic files, and check clinical PCOS risk assessments immediately.
-          </p>
-
-          <div className="flex items-center justify-center">
-            <Link
-              href="/dashboard"
-              className="px-8 py-4 rounded-2xl font-bold text-xs bg-foreground text-background hover:opacity-90 shadow-lg active:scale-97 flex items-center gap-2 group transition-all"
-            >
-              Start Your Free Sync
-              <ArrowRight className="h-4.5 w-4.5 transition-transform group-hover:translate-x-1" />
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* 7. FOOTER */}
-      <footer className="border-t border-border bg-card px-4 py-12 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-8">
-          
-          {/* Col 1: Brand Info */}
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-tr from-primary to-secondary text-white shadow-sm">
-                <Heart className="h-4.5 w-4.5 fill-white/20" />
-              </div>
-              <span className="text-base font-bold text-foreground">SheCare</span>
+        <section className="px-4 py-16 text-center sm:px-6 lg:px-8">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true, margin: "-80px" }}
+            transition={{ type: "spring", stiffness: 120, damping: 16 }}
+            className="mx-auto max-w-3xl rounded-[2rem] border border-border/70 bg-card p-8 shadow-sm"
+          >
+            <CheckCircle2 className="mx-auto h-9 w-9 text-primary" />
+            <h2 className="mt-5 font-display text-3xl font-black tracking-tight text-foreground sm:text-4xl">
+              Start with the dashboard, refine as the product grows.
+            </h2>
+            <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-muted-foreground">
+              Login or register to enter the protected mock dashboard and try the new modules.
+            </p>
+            <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
+              <Link
+                href="/register"
+                className="rounded-2xl bg-foreground px-6 py-3 text-sm font-black text-background transition hover:opacity-90"
+              >
+                Register
+              </Link>
+              <Link
+                href="/dashboard"
+                className="rounded-2xl border border-border bg-background px-6 py-3 text-sm font-black text-foreground transition hover:bg-muted"
+              >
+                View Dashboard
+              </Link>
             </div>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Empowering reproductive health, scheduling reminders, and predictions with absolute security and premium diagnostics.
-            </p>
-          </div>
+          </motion.div>
+        </section>
+      </main>
 
-          {/* Col 2: Services Links */}
-          <div className="space-y-3.5 text-xs">
-            <h4 className="font-bold text-foreground">Ecosystem</h4>
-            <ul className="space-y-2 text-muted-foreground">
-              <li><Link href="/dashboard" className="hover:text-foreground">Cycle Tracker</Link></li>
-              <li><Link href="/dashboard" className="hover:text-foreground">Symptom Journal</Link></li>
-              <li><Link href="/dashboard" className="hover:text-foreground">Risk Insights</Link></li>
-              <li><Link href="/dashboard" className="hover:text-foreground">Reminders</Link></li>
-            </ul>
+      <footer className="border-t border-border bg-card px-4 py-8 sm:px-6 lg:px-8">
+        <div className="mx-auto flex max-w-7xl flex-col gap-4 text-sm text-muted-foreground md:flex-row md:items-center md:justify-between">
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-tr from-primary to-secondary text-white">
+              <Sparkles className="h-4 w-4" />
+            </div>
+            <span className="font-black text-foreground">SheCare</span>
           </div>
-
-          {/* Col 3: Resources Links */}
-          <div className="space-y-3.5 text-xs">
-            <h4 className="font-bold text-foreground">Resources</h4>
-            <ul className="space-y-2 text-muted-foreground">
-              <li><a href="#features" className="hover:text-foreground">Features Catalog</a></li>
-              <li><a href="#how-it-works" className="hover:text-foreground">How It Works</a></li>
-              <li><a href="#privacy" className="hover:text-foreground">Confidentiality Policy</a></li>
-              <li><Link href="/dashboard" className="hover:text-foreground">Vitals Demo</Link></li>
-            </ul>
-          </div>
-
-          {/* Col 4: Platform Rules */}
-          <div className="space-y-3.5 text-xs">
-            <h4 className="font-bold text-foreground">Security Compliance</h4>
-            <p className="text-muted-foreground leading-relaxed">
-              We encrypt 100% of cycle diaries. We strictly conform to CCPA privacy models, ensuring your self-care timeline belongs solely to you.
-            </p>
-          </div>
-
-        </div>
-
-        {/* Legal copyrights */}
-        <div className="max-w-7xl mx-auto mt-12 pt-6 border-t border-border/60 flex flex-col sm:flex-row items-center justify-between text-xs text-muted-foreground gap-4">
-          <p>© 2026 SheCare Technologies Inc. All rights reserved.</p>
-          <div className="flex gap-4">
-            <span className="hover:text-foreground cursor-pointer">Terms of Service</span>
-            <span>•</span>
-            <span className="hover:text-foreground cursor-pointer">Privacy Charter</span>
-            <span>•</span>
-            <span className="hover:text-foreground cursor-pointer">CCPA Opt-Out</span>
-          </div>
+          <p>Frontend prototype for cycle, wellness, appointments, reports, analytics, and PCOS risk.</p>
         </div>
       </footer>
-
     </div>
   );
 }

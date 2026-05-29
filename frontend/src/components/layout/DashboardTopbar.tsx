@@ -3,6 +3,7 @@
 import React, { useState, useSyncExternalStore } from "react";
 import { useTheme } from "next-themes";
 import { ChevronDown, LogOut, Menu, Moon, Search, Sun, UserCircle } from "lucide-react";
+import type { AuthUser } from "../../lib/authApi";
 import { cn } from "../../lib/utils";
 
 const subscribeToMount = () => () => {};
@@ -11,11 +12,12 @@ const getServerSnapshot = () => false;
 
 interface DashboardTopbarProps {
   title: string;
+  user: AuthUser;
   onMenuToggle: () => void;
   onLogout: () => void;
 }
 
-export default function DashboardTopbar({ title, onMenuToggle, onLogout }: DashboardTopbarProps) {
+export default function DashboardTopbar({ title, user, onMenuToggle, onLogout }: DashboardTopbarProps) {
   const { theme, setTheme } = useTheme();
   const [profileOpen, setProfileOpen] = useState(false);
   const mounted = useSyncExternalStore(
@@ -107,10 +109,10 @@ export default function DashboardTopbar({ title, onMenuToggle, onLogout }: Dashb
                 </span>
                 <span className="min-w-0">
                   <span className="block truncate text-xs font-bold text-foreground">
-                    Sophia Sterling
+                    {user.fullName}
                   </span>
                   <span className="block truncate text-[10px] font-semibold text-muted-foreground">
-                    Mock user
+                    {user.role === "doctor" ? "Doctor" : "User"}
                   </span>
                 </span>
               </span>
@@ -132,8 +134,8 @@ export default function DashboardTopbar({ title, onMenuToggle, onLogout }: Dashb
                 />
                 <div className="absolute right-0 z-20 mt-2 w-56 rounded-2xl border border-border bg-card p-2 shadow-xl shadow-foreground/5">
                   <div className="px-3 py-2">
-                    <p className="text-xs font-bold text-foreground">Sophia Sterling</p>
-                    <p className="text-[11px] text-muted-foreground">sophia@example.com</p>
+                    <p className="text-xs font-bold text-foreground">{user.fullName}</p>
+                    <p className="text-[11px] text-muted-foreground">{user.email}</p>
                   </div>
                   <button
                     type="button"

@@ -7,7 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { AlertCircle, ChevronDown, Loader2, Lock, Mail, User } from "lucide-react";
 import AuthShell from "../../components/auth/AuthShell";
-import { registerMock } from "../../lib/mockAuth";
+import { register as registerUser } from "../../lib/authApi";
 import { cn } from "../../lib/utils";
 
 const registerSchema = z
@@ -47,13 +47,17 @@ export default function RegisterPage() {
 
   const onSubmit = async (data: RegisterFormValues) => {
     setFormError("");
-    await registerMock({
-      fullName: data.fullName,
-      email: data.email,
-      password: data.password,
-      role: data.role,
-    });
-    router.push("/dashboard");
+    try {
+      await registerUser({
+        fullName: data.fullName,
+        email: data.email,
+        password: data.password,
+        role: data.role,
+      });
+      router.push("/dashboard");
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : "Unable to create your account right now.");
+    }
   };
 
   const handleInvalidSubmit = () => {

@@ -7,7 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { AlertCircle, Loader2, Lock, Mail } from "lucide-react";
 import AuthShell from "../../components/auth/AuthShell";
-import { loginMock } from "../../lib/mockAuth";
+import { login } from "../../lib/authApi";
 import { cn } from "../../lib/utils";
 
 const loginSchema = z.object({
@@ -34,8 +34,12 @@ export default function LoginPage() {
 
   const onSubmit = async (data: LoginFormValues) => {
     setFormError("");
-    await loginMock(data);
-    router.push("/dashboard");
+    try {
+      await login(data);
+      router.push("/dashboard");
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : "Unable to sign in right now.");
+    }
   };
 
   const handleInvalidSubmit = () => {
