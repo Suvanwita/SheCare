@@ -53,9 +53,8 @@ def _convert_numeric_columns(df: pd.DataFrame) -> pd.DataFrame:
             continue
 
         numeric_series = pd.to_numeric(series, errors="coerce")
-        non_missing_count = series.notna().sum()
 
-        if non_missing_count == 0 or numeric_series.notna().sum() == non_missing_count:
+        if numeric_series.notna().sum() > 0:
             converted_df[column] = numeric_series
 
     return converted_df

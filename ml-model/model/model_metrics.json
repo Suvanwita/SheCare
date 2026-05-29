@@ -1,0 +1,46 @@
+{
+  "priority_note": "For healthcare risk prediction, recall and F1-score should be prioritized alongside ROC-AUC instead of accuracy alone.",
+  "positive_class": 1,
+  "accuracy": 0.9357798165137615,
+  "precision": 0.967741935483871,
+  "recall": 0.8333333333333334,
+  "f1_score": 0.8955223880597015,
+  "roc_auc": 0.9362633181126332,
+  "confusion_matrix": [
+    [
+      72,
+      1
+    ],
+    [
+      6,
+      30
+    ]
+  ],
+  "classification_report": {
+    "0": {
+      "precision": 0.9230769230769231,
+      "recall": 0.9863013698630136,
+      "f1-score": 0.9536423841059603,
+      "support": 73.0
+    },
+    "1": {
+      "precision": 0.967741935483871,
+      "recall": 0.8333333333333334,
+      "f1-score": 0.8955223880597015,
+      "support": 36.0
+    },
+    "accuracy": 0.9357798165137615,
+    "macro avg": {
+      "precision": 0.9454094292803971,
+      "recall": 0.9098173515981736,
+      "f1-score": 0.9245823860828308,
+      "support": 109.0
+    },
+    "weighted avg": {
+      "precision": 0.9378286702938967,
+      "recall": 0.9357798165137615,
+      "f1-score": 0.9344467890815078,
+      "support": 109.0
+    }
+  }
+}

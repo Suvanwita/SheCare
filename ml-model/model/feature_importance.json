@@ -1,0 +1,166 @@
+[
+  {
+    "feature": "follicle_no_r",
+    "importance": 0.19418088876652387
+  },
+  {
+    "feature": "follicle_no_l",
+    "importance": 0.11754360426046441
+  },
+  {
+    "feature": "skin_darkening_y_n",
+    "importance": 0.055720091800739675
+  },
+  {
+    "feature": "weight_gain_y_n",
+    "importance": 0.05403593283113427
+  },
+  {
+    "feature": "hair_growth_y_n",
+    "importance": 0.04994590700400921
+  },
+  {
+    "feature": "amh_ng_ml",
+    "importance": 0.041768018907976205
+  },
+  {
+    "feature": "cycle_length_days",
+    "importance": 0.027262137371846656
+  },
+  {
+    "feature": "fast_food_y_n",
+    "importance": 0.025987663074889502
+  },
+  {
+    "feature": "cycle_r_i",
+    "importance": 0.024714599000077112
+  },
+  {
+    "feature": "bmi",
+    "importance": 0.023799552570213992
+  },
+  {
+    "feature": "weight_kg",
+    "importance": 0.019893719704241877
+  },
+  {
+    "feature": "age_yrs",
+    "importance": 0.01943587426960736
+  },
+  {
+    "feature": "fsh_lh",
+    "importance": 0.019073455013105093
+  },
+  {
+    "feature": "avg_f_size_l_mm",
+    "importance": 0.01898387298253509
+  },
+  {
+    "feature": "tsh_miu_l",
+    "importance": 0.01891729063961237
+  },
+  {
+    "feature": "lh_miu_ml",
+    "importance": 0.017840838472983508
+  },
+  {
+    "feature": "marraige_status_yrs",
+    "importance": 0.017609045111548267
+  },
+  {
+    "feature": "vit_d3_ng_ml",
+    "importance": 0.01757133629467548
+  },
+  {
+    "feature": "fsh_miu_ml",
+    "importance": 0.01693261109143968
+  },
+  {
+    "feature": "prl_ng_ml",
+    "importance": 0.016558848758138286
+  },
+  {
+    "feature": "endometrium_mm",
+    "importance": 0.016464137860514805
+  },
+  {
+    "feature": "hip_inch",
+    "importance": 0.015288360852312135
+  },
+  {
+    "feature": "waist_inch",
+    "importance": 0.015111961951597575
+  },
+  {
+    "feature": "rbs_mg_dl",
+    "importance": 0.01473820879976594
+  },
+  {
+    "feature": "avg_f_size_r_mm",
+    "importance": 0.014528965910562717
+  },
+  {
+    "feature": "prg_ng_ml",
+    "importance": 0.014284412397167386
+  },
+  {
+    "feature": "hb_g_dl",
+    "importance": 0.013568934204575644
+  },
+  {
+    "feature": "waist_hip_ratio",
+    "importance": 0.013343309549133686
+  },
+  {
+    "feature": "height_cm",
+    "importance": 0.012938148476485863
+  },
+  {
+    "feature": "i_beta_hcg_miu_ml",
+    "importance": 0.012148575965564585
+  },
+  {
+    "feature": "pimples_y_n",
+    "importance": 0.011976419915959404
+  },
+  {
+    "feature": "pulse_rate_bpm",
+    "importance": 0.010293370747646182
+  },
+  {
+    "feature": "ii_beta_hcg_miu_ml",
+    "importance": 0.009079725325875218
+  },
+  {
+    "feature": "blood_group",
+    "importance": 0.005901817159605232
+  },
+  {
+    "feature": "rr_breaths_min",
+    "importance": 0.004965329837510204
+  },
+  {
+    "feature": "hair_loss_y_n",
+    "importance": 0.004184933899061192
+  },
+  {
+    "feature": "bp_systolic_mmhg",
+    "importance": 0.0036139744418094634
+  },
+  {
+    "feature": "reg_exercise_y_n",
+    "importance": 0.0026996156847888474
+  },
+  {
+    "feature": "bp_diastolic_mmhg",
+    "importance": 0.002551520124055177
+  },
+  {
+    "feature": "pregnant_y_n",
+    "importance": 0.0023960653815368756
+  },
+  {
+    "feature": "no_of_abortions",
+    "importance": 0.002146923588709901
+  }
+]
