@@ -2,6 +2,9 @@ FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
+ENV MODEL_PATH=model/cycle_irregularity_model.pkl
+ENV FEATURE_COLUMNS_PATH=model/feature_columns.json
+ENV PREPROCESSING_METADATA_PATH=model/preprocessing_metadata.json
 ENV PORT=8001
 
 WORKDIR /app

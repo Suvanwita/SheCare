@@ -12,6 +12,9 @@ class Settings(BaseModel):
     app_version: str
     environment: str
     cors_origins: List[str]
+    model_path: str
+    feature_columns_path: str
+    preprocessing_metadata_path: str
     port: int
 
 
@@ -36,6 +39,13 @@ def get_settings() -> Settings:
         environment=os.getenv("ENVIRONMENT", "development"),
         cors_origins=_parse_cors_origins(
             os.getenv("CORS_ORIGINS", '["http://localhost:3000"]')
+        ),
+        model_path=os.getenv("MODEL_PATH", "model/cycle_irregularity_model.pkl"),
+        feature_columns_path=os.getenv(
+            "FEATURE_COLUMNS_PATH", "model/feature_columns.json"
+        ),
+        preprocessing_metadata_path=os.getenv(
+            "PREPROCESSING_METADATA_PATH", "model/preprocessing_metadata.json"
         ),
         port=int(os.getenv("PORT", "8001")),
     )
