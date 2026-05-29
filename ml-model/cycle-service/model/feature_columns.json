@@ -1,0 +1,20 @@
+[
+  "age",
+  "cycle_length",
+  "period_length",
+  "stress_level",
+  "sleep_hours",
+  "bmi",
+  "exercise_frequency_High",
+  "exercise_frequency_Low",
+  "exercise_frequency_Moderate",
+  "diet_Balanced",
+  "diet_High Sugar",
+  "diet_Low Carb",
+  "diet_Vegetarian",
+  "symptoms_Bloating",
+  "symptoms_Cramps",
+  "symptoms_Fatigue",
+  "symptoms_Headache",
+  "symptoms_Mood Swings"
+]

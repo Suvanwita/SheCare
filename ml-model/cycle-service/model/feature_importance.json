@@ -1,0 +1,74 @@
+[
+  {
+    "feature": "cycle_length",
+    "importance": 0.8708467384001664
+  },
+  {
+    "feature": "bmi",
+    "importance": 0.02282411762156523
+  },
+  {
+    "feature": "sleep_hours",
+    "importance": 0.01884079001022072
+  },
+  {
+    "feature": "period_length",
+    "importance": 0.01834490181177696
+  },
+  {
+    "feature": "age",
+    "importance": 0.01811563426393477
+  },
+  {
+    "feature": "stress_level",
+    "importance": 0.009056502963620278
+  },
+  {
+    "feature": "symptoms_Mood Swings",
+    "importance": 0.00558706596104324
+  },
+  {
+    "feature": "symptoms_Fatigue",
+    "importance": 0.005065550576493954
+  },
+  {
+    "feature": "symptoms_Headache",
+    "importance": 0.005049228071882958
+  },
+  {
+    "feature": "symptoms_Bloating",
+    "importance": 0.004006464551092558
+  },
+  {
+    "feature": "symptoms_Cramps",
+    "importance": 0.004001402442495834
+  },
+  {
+    "feature": "exercise_frequency_Low",
+    "importance": 0.0033213337549335676
+  },
+  {
+    "feature": "diet_Balanced",
+    "importance": 0.0026144048230752233
+  },
+  {
+    "feature": "diet_Vegetarian",
+    "importance": 0.0026102327554313187
+  },
+  {
+    "feature": "exercise_frequency_Moderate",
+    "importance": 0.002578763662453534
+  },
+  {
+    "feature": "exercise_frequency_High",
+    "importance": 0.002481262038824622
+  },
+  {
+    "feature": "diet_Low Carb",
+    "importance": 0.0024094515463849984
+  },
+  {
+    "feature": "diet_High Sugar",
+    "importance": 0.0022461547446039933
+  }
+]

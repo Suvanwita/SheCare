@@ -40,6 +40,7 @@ FEATURE_ALIASES = {
         "period_duration",
         "period_duration_days",
         "period_length",
+        "period_len",
         "bleeding_days",
         "menses_duration",
     ],
@@ -52,8 +53,10 @@ FEATURE_ALIASES = {
         "physical_activity",
     ],
     "bmi": ["bmi", "body_mass_index"],
+    "diet": ["diet", "diet_type", "diet_quality"],
     "mood": ["mood", "mood_changes", "mood_score"],
     "pain_level": ["pain_level", "cramp_level", "cramps", "menstrual_pain"],
+    "symptoms": ["symptoms", "reported_symptoms", "cycle_symptoms"],
 }
 
 

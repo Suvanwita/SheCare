@@ -1,0 +1,45 @@
+{
+  "priority_note": "For cycle irregularity detection, recall for class 1 (irregular cycle) should be prioritized alongside F1-score.",
+  "positive_class": 1,
+  "accuracy": 1.0,
+  "precision": 1.0,
+  "recall": 1.0,
+  "f1_score": 1.0,
+  "confusion_matrix": [
+    [
+      78,
+      0
+    ],
+    [
+      0,
+      101
+    ]
+  ],
+  "classification_report": {
+    "regular": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 78.0
+    },
+    "irregular": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 101.0
+    },
+    "accuracy": 1.0,
+    "macro avg": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 179.0
+    },
+    "weighted avg": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 179.0
+    }
+  }
+}

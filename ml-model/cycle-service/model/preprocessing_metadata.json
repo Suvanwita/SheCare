@@ -1,0 +1,143 @@
+{
+  "target_column": "cycle_irregularity",
+  "target_strategy": "created_from_cycle_length:cycle_length",
+  "selected_source_columns": [
+    "age",
+    "cycle_length",
+    "period_length",
+    "stress_level",
+    "sleep_hours",
+    "exercise_frequency",
+    "bmi",
+    "diet",
+    "symptoms"
+  ],
+  "categorical_columns": [
+    "exercise_frequency",
+    "diet",
+    "symptoms"
+  ],
+  "encoded_columns": [
+    "age",
+    "cycle_length",
+    "period_length",
+    "stress_level",
+    "sleep_hours",
+    "bmi",
+    "exercise_frequency_High",
+    "exercise_frequency_Low",
+    "exercise_frequency_Moderate",
+    "diet_Balanced",
+    "diet_High Sugar",
+    "diet_Low Carb",
+    "diet_Vegetarian",
+    "symptoms_Bloating",
+    "symptoms_Cramps",
+    "symptoms_Fatigue",
+    "symptoms_Headache",
+    "symptoms_Mood Swings"
+  ],
+  "imputation_values": {
+    "age": {
+      "strategy": "median",
+      "value": 31.0
+    },
+    "cycle_length": {
+      "strategy": "median",
+      "value": 37.0
+    },
+    "period_length": {
+      "strategy": "median",
+      "value": 5.0
+    },
+    "stress_level": {
+      "strategy": "median",
+      "value": 3.0
+    },
+    "sleep_hours": {
+      "strategy": "median",
+      "value": 7.1
+    },
+    "exercise_frequency": {
+      "strategy": "mode",
+      "value": "High"
+    },
+    "bmi": {
+      "strategy": "median",
+      "value": 24.38
+    },
+    "diet": {
+      "strategy": "mode",
+      "value": "Vegetarian"
+    },
+    "symptoms": {
+      "strategy": "mode",
+      "value": "Bloating"
+    }
+  },
+  "feature_aliases": {
+    "age": [
+      "age",
+      "age_yrs",
+      "age_years",
+      "user_age"
+    ],
+    "cycle_length": [
+      "cycle_length",
+      "cycle_length_days",
+      "average_cycle_length",
+      "average_cycle_length_days",
+      "avg_cycle_length",
+      "menstrual_cycle_length"
+    ],
+    "period_duration": [
+      "period_duration",
+      "period_duration_days",
+      "period_length",
+      "period_len",
+      "bleeding_days",
+      "menses_duration"
+    ],
+    "stress_level": [
+      "stress_level",
+      "stress",
+      "stress_score"
+    ],
+    "sleep_hours": [
+      "sleep_hours",
+      "sleep_duration",
+      "hours_of_sleep"
+    ],
+    "exercise_frequency": [
+      "exercise_frequency",
+      "exercise_days_per_week",
+      "weekly_exercise",
+      "physical_activity"
+    ],
+    "bmi": [
+      "bmi",
+      "body_mass_index"
+    ],
+    "diet": [
+      "diet",
+      "diet_type",
+      "diet_quality"
+    ],
+    "mood": [
+      "mood",
+      "mood_changes",
+      "mood_score"
+    ],
+    "pain_level": [
+      "pain_level",
+      "cramp_level",
+      "cramps",
+      "menstrual_pain"
+    ],
+    "symptoms": [
+      "symptoms",
+      "reported_symptoms",
+      "cycle_symptoms"
+    ]
+  }
+}
