@@ -51,7 +51,7 @@ export default function CycleTracker() {
       {/* Header Info */}
       <div className="flex items-center justify-between z-10">
         <div>
-          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Menstrual Status</span>
+          <span className="text-xs font-semibold text-muted-foreground tracking-wider">Menstrual Status</span>
           <h3 className="text-xl font-bold mt-0.5 text-foreground">Cycle Insights</h3>
         </div>
         <span className={cn("text-xs font-semibold px-3 py-1 rounded-full border shadow-sm transition-colors duration-300", phaseInfo.badgeColor)}>
@@ -121,7 +121,7 @@ export default function CycleTracker() {
           
           <div className="grid grid-cols-2 gap-3 text-xs">
             <div className="border border-border/60 bg-muted/20 p-2.5 rounded-xl flex flex-col gap-0.5">
-              <span className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Next Predict</span>
+              <span className="text-[10px] text-muted-foreground font-semibold tracking-wider">Next Predict</span>
               <span className="font-bold flex items-center gap-1 mt-0.5 text-foreground/80">
                 <Calendar className="h-3.5 w-3.5 text-primary" />
                 June 2

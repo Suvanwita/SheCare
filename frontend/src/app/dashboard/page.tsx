@@ -59,7 +59,7 @@ export default function DashboardPage() {
         {/* Stat 1: Sleep Quality */}
         <div className="glass-card rounded-2xl p-5 border border-border/50 flex items-center justify-between shadow-sm hover:shadow-md transition-shadow duration-200">
           <div className="space-y-1">
-            <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">Sleep Quality</span>
+            <span className="text-[10px] text-muted-foreground font-bold tracking-wider">Sleep Quality</span>
             <h4 className="text-2xl font-black font-sans text-foreground">82%</h4>
             <p className="text-[11px] text-indigo-500 font-medium">7.5h slept • Good</p>
           </div>
@@ -83,7 +83,7 @@ export default function DashboardPage() {
         {/* Stat 3: Daily Activity */}
         <div className="glass-card rounded-2xl p-5 border border-border/50 flex items-center justify-between shadow-sm hover:shadow-md transition-shadow duration-200">
           <div className="space-y-1">
-            <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">Activity Steps</span>
+            <span className="text-[10px] text-muted-foreground font-bold tracking-wider">Activity Steps</span>
             <h4 className="text-2xl font-black font-sans text-foreground">8,430</h4>
             <p className="text-[11px] text-emerald-500 font-medium">Goal: 10k • 84% done</p>
           </div>

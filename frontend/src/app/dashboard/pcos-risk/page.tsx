@@ -91,7 +91,7 @@ const featureLabels: Record<string, string> = {
   amh_ng_ml: "AMH",
   fsh_miu_ml: "FSH",
   lh_miu_ml: "LH",
-  fsh_lh: "FSH/LH ratio",
+  fsh_lh: "FSH/LH Ratio",
   tsh_miu_l: "TSH",
   vit_d3_ng_ml: "Vitamin D3",
   waist_inch: "Waist",
@@ -412,7 +412,7 @@ export default function PcosRiskDashboardPage() {
             <MetricInput label="AMH (ng/mL)" registration={register("amh_ng_ml")} error={errors.amh_ng_ml?.message} placeholder="5.2" step="0.01" />
             <MetricInput label="FSH (mIU/mL)" registration={register("fsh_miu_ml")} error={errors.fsh_miu_ml?.message} placeholder="6.5" step="0.01" />
             <MetricInput label="LH (mIU/mL)" registration={register("lh_miu_ml")} error={errors.lh_miu_ml?.message} placeholder="8.1" step="0.01" />
-            <MetricInput label="FSH/LH ratio" registration={register("fsh_lh")} error={errors.fsh_lh?.message} placeholder="Auto" step="0.001" readOnly value={fshLhRatio} />
+            <MetricInput label="FSH/LH Ratio" registration={register("fsh_lh")} error={errors.fsh_lh?.message} placeholder="Auto" step="0.001" readOnly value={fshLhRatio} />
             <MetricInput label="TSH (mIU/L)" registration={register("tsh_miu_l")} error={errors.tsh_miu_l?.message} placeholder="2.1" step="0.01" />
             <MetricInput label="Vitamin D3 (ng/mL)" registration={register("vit_d3_ng_ml")} error={errors.vit_d3_ng_ml?.message} placeholder="22" step="0.1" />
             <MetricInput label="Waist (inch)" registration={register("waist_inch")} error={errors.waist_inch?.message} placeholder="32" step="0.1" />
@@ -477,7 +477,7 @@ export default function PcosRiskDashboardPage() {
           <div className="glass-card rounded-3xl border border-border/60 p-6 shadow-sm">
             <div className="flex items-center gap-2">
               <ShieldAlert className="h-5 w-5 text-primary" />
-              <h3 className="text-lg font-black text-foreground">ML response</h3>
+              <h3 className="text-lg font-black text-foreground">ML Response</h3>
             </div>
             <p className="mt-4 rounded-2xl border border-border/60 bg-muted/20 p-4 text-sm leading-relaxed text-muted-foreground">
               {result?.message ?? "Submit the assessment to receive a model-backed result."}

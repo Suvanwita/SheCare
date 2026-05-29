@@ -54,7 +54,7 @@ export default function VitalsCharts() {
       {/* Header and Tab Selector */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border/40">
         <div>
-          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Health Analytics</span>
+          <span className="text-xs font-semibold text-muted-foreground tracking-wider">Health Analytics</span>
           <h3 className="text-xl font-bold mt-0.5 text-foreground font-sans">Wellness Trends</h3>
         </div>
 
@@ -179,15 +179,15 @@ export default function VitalsCharts() {
       {/* Dynamic Summary Cards */}
       <div className="grid grid-cols-3 gap-3.5 mt-6 pt-4 border-t border-border/40">
         <div className="flex flex-col gap-0.5">
-          <span className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Avg Sleep</span>
+          <span className="text-[10px] text-muted-foreground font-semibold tracking-wider">Avg Sleep</span>
           <span className="text-sm font-bold text-foreground/90">7.3 hrs</span>
         </div>
         <div className="flex flex-col gap-0.5">
-          <span className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Avg Water</span>
+          <span className="text-[10px] text-muted-foreground font-semibold tracking-wider">Avg Water</span>
           <span className="text-sm font-bold text-foreground/90">1,850 ml</span>
         </div>
         <div className="flex flex-col gap-0.5">
-          <span className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Avg Steps</span>
+          <span className="text-[10px] text-muted-foreground font-semibold tracking-wider">Avg Steps</span>
           <span className="text-sm font-bold text-foreground/90">8,100 steps</span>
         </div>
       </div>

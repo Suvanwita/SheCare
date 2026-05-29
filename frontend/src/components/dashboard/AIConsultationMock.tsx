@@ -99,7 +99,7 @@ export default function AIConsultationMock() {
             <Bot className="h-4.5 w-4.5" />
           </div>
           <div>
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">AI Assistant</span>
+            <span className="text-xs font-semibold text-muted-foreground tracking-wider">AI Assistant</span>
             <h3 className="text-xl font-bold mt-0.5 text-foreground font-sans">SheCare AI</h3>
           </div>
         </div>

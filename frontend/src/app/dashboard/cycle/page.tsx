@@ -19,7 +19,9 @@ import {
   AlertCircle,
   CalendarDays,
   Gauge,
+  Loader2,
   Plus,
+  ShieldAlert,
   Sparkles,
   Trash2,
   TrendingUp,
@@ -30,6 +32,10 @@ import {
   type CycleEntry,
 } from "../../../data/mockCycle";
 import { cn, formatDate } from "../../../lib/utils";
+import {
+  predictCycleIrregularity,
+  type CycleIrregularityPrediction,
+} from "../../../services/cycleMl.service";
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 
@@ -40,6 +46,17 @@ const cycleSchema = z
     flowIntensity: z.enum(["light", "medium", "heavy"], {
       message: "Select a flow intensity",
     }),
+    age: z.coerce.number({ message: "Age is required" }).min(10, "Enter a valid age").max(65, "Enter a valid age"),
+    cycle_length: z.coerce.number({ message: "Cycle length is required" }).min(1, "Enter cycle length").max(120, "Check this value"),
+    period_duration: z.coerce.number({ message: "Period duration is required" }).min(1, "Enter period duration").max(30, "Check this value"),
+    stress_level: z.coerce.number({ message: "Stress level is required" }).min(0, "Use 0-10").max(10, "Use 0-10"),
+    sleep_hours: z.coerce.number({ message: "Sleep hours are required" }).min(0, "Cannot be negative").max(24, "Cannot exceed 24"),
+    exercise_frequency: z.coerce.number({ message: "Exercise frequency is required" }).min(0, "Cannot be negative").max(7, "Use days per week"),
+    bmi: z.coerce.number({ message: "BMI is required" }).min(1, "Enter BMI").max(80, "Check this value"),
+    mood_score: z.coerce.number({ message: "Mood score is required" }).min(0, "Use 0-10").max(10, "Use 0-10"),
+    pain_level: z.coerce.number({ message: "Pain level is required" }).min(0, "Use 0-10").max(10, "Use 0-10"),
+    weight_change: z.coerce.number({ message: "Weight change is required" }).min(-50, "Check this value").max(50, "Check this value"),
+    previous_cycle_length: z.coerce.number({ message: "Previous cycle length is required" }).min(1, "Enter previous cycle length").max(120, "Check this value"),
     notes: z.string().max(240, "Notes cannot exceed 240 characters").optional(),
   })
   .refine((data) => parseDate(data.endDate) >= parseDate(data.startDate), {
@@ -47,11 +64,67 @@ const cycleSchema = z
     path: ["endDate"],
   });
 
-type CycleFormValues = z.infer<typeof cycleSchema>;
+type CycleFormInput = z.input<typeof cycleSchema>;
+type CycleFormValues = z.output<typeof cycleSchema>;
 
 function parseDate(value: string) {
   const [year, month, day] = value.split("-").map(Number);
   return new Date(year, month - 1, day);
+}
+
+function NumericField({
+  label,
+  registration,
+  error,
+  placeholder,
+  step,
+}: {
+  label: string;
+  registration: ReturnType<typeof useForm<CycleFormInput>>["register"] extends (
+    name: infer Name
+  ) => infer RegisterReturn
+    ? RegisterReturn
+    : never;
+  error?: string;
+  placeholder: string;
+  step?: string;
+}) {
+  return (
+    <label className="space-y-2">
+      <span className="text-xs font-bold uppercase tracking-wide text-foreground/80">
+        {label}
+      </span>
+      <input
+        type="number"
+        step={step}
+        {...registration}
+        placeholder={placeholder}
+        className={cn(
+          "w-full rounded-2xl border bg-muted/10 px-4 py-3 text-sm outline-none transition focus:border-primary/80 focus:ring-1 focus:ring-primary/40",
+          error ? "border-destructive/60" : "border-border/80"
+        )}
+      />
+      <FieldError message={error} />
+    </label>
+  );
+}
+
+function InsightBadge({ level }: { level: CycleIrregularityPrediction["risk_level"] }) {
+  return (
+    <span
+      className={cn(
+        "rounded-full border px-3 py-1.5 text-xs font-black",
+        level === "Low" &&
+          "border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+        level === "Moderate" &&
+          "border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400",
+        level === "High" &&
+          "border-rose-500/20 bg-rose-500/10 text-rose-600 dark:text-rose-400"
+      )}
+    >
+      {level}
+    </span>
+  );
 }
 
 function addDays(date: Date, days: number) {
@@ -130,7 +203,7 @@ function PredictionMetric({
   return (
     <div className="rounded-3xl border border-border/60 bg-card p-5 shadow-sm">
       <div className="flex items-center justify-between gap-3">
-        <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+        <span className="text-xs font-bold tracking-wide text-muted-foreground">
           {label}
         </span>
         <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-primary/10 text-primary">
@@ -145,17 +218,30 @@ function PredictionMetric({
 export default function CycleDashboardPage() {
   const [entries, setEntries] = useState<CycleEntry[]>(MOCK_CYCLE_ENTRIES);
   const [chartsReady, setChartsReady] = useState(false);
+  const [cycleInsight, setCycleInsight] = useState<CycleIrregularityPrediction | null>(null);
+  const [insightError, setInsightError] = useState<string | null>(null);
   const {
     register,
     handleSubmit,
     reset,
     formState: { errors, isSubmitting },
-  } = useForm<CycleFormValues>({
+  } = useForm<CycleFormInput, unknown, CycleFormValues>({
     resolver: zodResolver(cycleSchema),
     defaultValues: {
       startDate: "",
       endDate: "",
       flowIntensity: "medium",
+      age: undefined,
+      cycle_length: undefined,
+      period_duration: undefined,
+      stress_level: 5,
+      sleep_hours: undefined,
+      exercise_frequency: undefined,
+      bmi: undefined,
+      mood_score: 5,
+      pain_level: 0,
+      weight_change: 0,
+      previous_cycle_length: undefined,
       notes: "",
     },
   });
@@ -219,7 +305,10 @@ export default function CycleDashboardPage() {
     [entries]
   );
 
-  const onSubmit = (data: CycleFormValues) => {
+  const onSubmit = async (data: CycleFormValues) => {
+    setInsightError(null);
+    setCycleInsight(null);
+
     setEntries((currentEntries) => [
       {
         id: `cycle-local-${currentEntries.length + 1}-${data.startDate}`,
@@ -230,10 +319,41 @@ export default function CycleDashboardPage() {
       },
       ...currentEntries,
     ]);
+
+    try {
+      const insight = await predictCycleIrregularity({
+        age: data.age,
+        cycle_length: data.cycle_length,
+        period_duration: data.period_duration,
+        stress_level: data.stress_level,
+        sleep_hours: data.sleep_hours,
+        exercise_frequency: data.exercise_frequency,
+        bmi: data.bmi,
+        mood_score: data.mood_score,
+        pain_level: data.pain_level,
+        weight_change: data.weight_change,
+        previous_cycle_length: data.previous_cycle_length,
+      });
+      setCycleInsight(insight);
+    } catch {
+      setInsightError("Cycle saved, but cycle insight is temporarily unavailable.");
+    }
+
     reset({
       startDate: "",
       endDate: "",
       flowIntensity: "medium",
+      age: undefined,
+      cycle_length: undefined,
+      period_duration: undefined,
+      stress_level: 5,
+      sleep_hours: undefined,
+      exercise_frequency: undefined,
+      bmi: undefined,
+      mood_score: 5,
+      pain_level: 0,
+      weight_change: 0,
+      previous_cycle_length: undefined,
       notes: "",
     });
   };
@@ -334,6 +454,27 @@ export default function CycleDashboardPage() {
             <FieldError message={errors.flowIntensity?.message} />
           </label>
 
+          <div className="mt-5 border-t border-border/60 pt-5">
+            <h4 className="text-sm font-black text-foreground">Cycle Insight Inputs</h4>
+            <p className="mt-1 text-xs text-muted-foreground">
+              These values are sent only to the cycle ML service.
+            </p>
+
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <NumericField label="Age" registration={register("age")} error={errors.age?.message} placeholder="29" />
+              <NumericField label="Cycle length (days)" registration={register("cycle_length")} error={errors.cycle_length?.message} placeholder="28" />
+              <NumericField label="Period duration (days)" registration={register("period_duration")} error={errors.period_duration?.message} placeholder="5" />
+              <NumericField label="Previous cycle length" registration={register("previous_cycle_length")} error={errors.previous_cycle_length?.message} placeholder={`${averageCycleLength}`} />
+              <NumericField label="Stress level (0-10)" registration={register("stress_level")} error={errors.stress_level?.message} placeholder="5" />
+              <NumericField label="Sleep hours" registration={register("sleep_hours")} error={errors.sleep_hours?.message} placeholder="7" step="0.1" />
+              <NumericField label="Exercise days/week" registration={register("exercise_frequency")} error={errors.exercise_frequency?.message} placeholder="3" />
+              <NumericField label="BMI" registration={register("bmi")} error={errors.bmi?.message} placeholder="24.5" step="0.1" />
+              <NumericField label="Mood score (0-10)" registration={register("mood_score")} error={errors.mood_score?.message} placeholder="6" />
+              <NumericField label="Pain level (0-10)" registration={register("pain_level")} error={errors.pain_level?.message} placeholder="3" />
+              <NumericField label="Weight change (kg)" registration={register("weight_change")} error={errors.weight_change?.message} placeholder="0" step="0.1" />
+            </div>
+          </div>
+
           <label className="mt-4 block space-y-2">
             <span className="text-xs font-bold uppercase tracking-wide text-foreground/80">
               Notes
@@ -355,8 +496,8 @@ export default function CycleDashboardPage() {
             disabled={isSubmitting}
             className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-secondary px-4 py-3 text-sm font-bold text-white shadow-md shadow-primary/15 transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-70"
           >
-            <Plus className="h-4 w-4" />
-            Add cycle
+            {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+            {isSubmitting ? "Analyzing cycle pattern..." : "Add cycle"}
           </button>
         </form>
 
@@ -367,6 +508,78 @@ export default function CycleDashboardPage() {
           <PredictionMetric label="Fertile window" value="Day 12-17 estimate" icon={Gauge} />
         </div>
       </section>
+
+      {(cycleInsight || insightError) && (
+        <section className="glass-card rounded-3xl border border-border/60 p-6 shadow-sm">
+          <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex items-center gap-2">
+              <ShieldAlert className="h-5 w-5 text-primary" />
+              <div>
+                <h3 className="text-lg font-black text-foreground">Cycle Insight</h3>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  ML-backed cycle irregularity analysis from the cycle service.
+                </p>
+              </div>
+            </div>
+            {cycleInsight && <InsightBadge level={cycleInsight.risk_level} />}
+          </div>
+
+          {insightError ? (
+            <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4 text-sm font-semibold text-amber-700 dark:text-amber-300">
+              {insightError}
+            </div>
+          ) : null}
+
+          {cycleInsight ? (
+            <div className="grid gap-5 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+              <div className="rounded-3xl border border-primary/20 bg-primary/10 p-5">
+                <p className="text-xs font-bold uppercase tracking-wide text-primary">
+                  Cycle Pattern
+                </p>
+                <p className="mt-2 text-3xl font-black text-foreground">
+                  {cycleInsight.cycle_pattern}
+                </p>
+                <p className="mt-4 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                  Probability
+                </p>
+                <p className="mt-1 text-2xl font-black text-foreground">
+                  {Math.round(cycleInsight.probability * 100)}%
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {cycleInsight.contributing_factors.map((factor) => (
+                    <div
+                      key={factor.factor}
+                      className="rounded-2xl border border-border/60 bg-card p-4"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-sm font-black text-foreground">
+                          {factor.factor.replaceAll("_", " ").charAt(0).toUpperCase()+factor.factor.replaceAll("_", " ").slice(1)}
+                        </p>
+                        <span className="rounded-full border border-primary/20 bg-primary/10 px-2 py-1 text-xs font-black text-primary">
+                          {Math.round(factor.impact * 100)}%
+                        </span>
+                      </div>
+                      <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                        {factor.description}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+
+                <p className="rounded-2xl border border-border/60 bg-muted/20 p-4 text-sm leading-relaxed text-muted-foreground">
+                  {cycleInsight.recommendation}
+                </p>
+                <p className="rounded-2xl border border-rose-500/20 bg-rose-500/10 p-4 text-xs leading-relaxed text-muted-foreground">
+                  {cycleInsight.disclaimer}
+                </p>
+              </div>
+            </div>
+          ) : null}
+        </section>
+      )}
 
       <section className="glass-card rounded-3xl border border-border/60 p-6 shadow-sm">
         <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
