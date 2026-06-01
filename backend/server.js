@@ -5,6 +5,8 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const cookieParser = require('cookie-parser');
 const connectDB = require('./config/db');
+const authRoutes = require('./routes/authRoutes');
+const { notFound, errorHandler } = require('./middleware/errorMiddleware');
 
 dotenv.config();
 
@@ -34,22 +36,10 @@ app.get('/health', (req, res) => {
   });
 });
 
-app.use((req, res) => {
-  res.status(404).json({
-    success: false,
-    message: `Route not found: ${req.originalUrl}`
-  });
-});
+app.use('/api/auth', authRoutes);
 
-app.use((err, req, res, next) => {
-  const statusCode = err.statusCode || 500;
-
-  res.status(statusCode).json({
-    success: false,
-    message: err.message || 'Internal Server Error',
-    stack: process.env.NODE_ENV === 'production' ? undefined : err.stack
-  });
-});
+app.use(notFound);
+app.use(errorHandler);
 
 app.listen(PORT, () => {
   console.log(`SheCare backend server running on port ${PORT}`);
