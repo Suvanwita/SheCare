@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -10,36 +10,59 @@ import {
   Droplet,
   Filter,
   HeartPulse,
+  Loader2,
   Moon,
   Plus,
   Scale,
   Smile,
+  Trash2,
   X,
 } from "lucide-react";
-import {
-  HEALTH_MOOD_OPTIONS,
-  HEALTH_SYMPTOM_OPTIONS,
-  MOCK_HEALTH_LOGS,
-  type HealthLogEntry,
-  type HealthMood,
-  type HealthSymptom,
-} from "../../../data/mockHealthLogs";
+import { useHealthLogStore } from "../../../store/healthLogStore";
+import type {
+  HealthLog,
+  HealthMood,
+  HealthSymptom,
+} from "../../../services/healthLog.service";
 import { cn, formatDate } from "../../../lib/utils";
+
+const HEALTH_MOOD_OPTIONS: Array<{ value: HealthMood; label: string }> = [
+  { value: "happy", label: "Happy" },
+  { value: "calm", label: "Calm" },
+  { value: "tired", label: "Tired" },
+  { value: "stressed", label: "Stressed" },
+  { value: "sad", label: "Sad" },
+  { value: "neutral", label: "Neutral" },
+];
+
+const HEALTH_SYMPTOM_OPTIONS: Array<{ value: HealthSymptom; label: string }> = [
+  { value: "cramps", label: "Cramps" },
+  { value: "headache", label: "Headache" },
+  { value: "acne", label: "Acne" },
+  { value: "bloating", label: "Bloating" },
+  { value: "fatigue", label: "Fatigue" },
+  { value: "nausea", label: "Nausea" },
+  { value: "mood_swings", label: "Mood swings" },
+];
 
 const healthLogSchema = z.object({
   date: z.string().min(1, "Date is required"),
-  mood: z.enum(["happy", "calm", "tired", "stressed", "sad"], {
+  mood: z.enum(["happy", "calm", "tired", "stressed", "sad", "neutral"], {
     message: "Choose a mood",
   }),
-  symptoms: z.array(z.enum([
-    "cramps",
-    "headache",
-    "acne",
-    "bloating",
-    "fatigue",
-    "nausea",
-    "mood_swings",
-  ])).min(1, "Select at least one symptom"),
+  symptoms: z
+    .array(
+      z.enum([
+        "cramps",
+        "headache",
+        "acne",
+        "bloating",
+        "fatigue",
+        "nausea",
+        "mood_swings",
+      ])
+    )
+    .min(1, "Select at least one symptom"),
   sleepHours: z.coerce
     .number({ message: "Sleep hours are required" })
     .min(0, "Sleep cannot be negative")
@@ -48,16 +71,23 @@ const healthLogSchema = z.object({
     .number({ message: "Water intake is required" })
     .min(0, "Water intake cannot be negative")
     .max(10000, "Water intake looks too high"),
-  weight: z.coerce
+  weightKg: z.coerce
     .number({ message: "Weight is required" })
     .min(20, "Enter a valid weight")
     .max(300, "Enter a valid weight"),
+  painLevel: z.coerce
+    .number({ message: "Pain level is required" })
+    .min(0, "Pain level cannot be below 0")
+    .max(10, "Pain level cannot exceed 10"),
+  stressLevel: z.coerce
+    .number({ message: "Stress level is required" })
+    .min(0, "Stress level cannot be below 0")
+    .max(10, "Stress level cannot exceed 10"),
   notes: z.string().max(280, "Notes cannot exceed 280 characters").optional(),
 });
 
 type HealthLogFormInput = z.input<typeof healthLogSchema>;
 type HealthLogFormValues = z.output<typeof healthLogSchema>;
-
 type MoodFilter = "all" | HealthMood;
 type SymptomFilter = "all" | HealthSymptom;
 
@@ -67,6 +97,7 @@ const moodTone: Record<HealthMood, string> = {
   tired: "bg-indigo-500/10 border-indigo-500/20 text-indigo-600 dark:text-indigo-400",
   stressed: "bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400",
   sad: "bg-rose-500/10 border-rose-500/20 text-rose-600 dark:text-rose-400",
+  neutral: "bg-muted border-border text-muted-foreground",
 };
 
 function FieldError({ message }: { message?: string }) {
@@ -83,7 +114,7 @@ function FieldError({ message }: { message?: string }) {
 }
 
 function parseDate(value: string) {
-  const [year, month, day] = value.split("-").map(Number);
+  const [year, month, day] = value.slice(0, 10).split("-").map(Number);
   return new Date(year, month - 1, day);
 }
 
@@ -129,14 +160,26 @@ function SummaryCard({
 }
 
 export default function HealthLogsDashboardPage() {
-  const [logs, setLogs] = useState<HealthLogEntry[]>(MOCK_HEALTH_LOGS);
+  const logs = useHealthLogStore((state) => state.logs);
+  const pagination = useHealthLogStore((state) => state.pagination);
+  const isLoading = useHealthLogStore((state) => state.isLoading);
+  const isSubmitting = useHealthLogStore((state) => state.isSubmitting);
+  const error = useHealthLogStore((state) => state.error);
+  const fetchLogs = useHealthLogStore((state) => state.fetchLogs);
+  const createLog = useHealthLogStore((state) => state.createLog);
+  const deleteLog = useHealthLogStore((state) => state.deleteLog);
+  const clearError = useHealthLogStore((state) => state.clearError);
   const [moodFilter, setMoodFilter] = useState<MoodFilter>("all");
   const [symptomFilter, setSymptomFilter] = useState<SymptomFilter>("all");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [formError, setFormError] = useState("");
+
   const {
     register,
     handleSubmit,
     reset,
-    formState: { errors, isSubmitting },
+    formState: { errors },
   } = useForm<HealthLogFormInput, unknown, HealthLogFormValues>({
     resolver: zodResolver(healthLogSchema),
     defaultValues: {
@@ -145,10 +188,23 @@ export default function HealthLogsDashboardPage() {
       symptoms: [],
       sleepHours: undefined,
       waterIntake: undefined,
-      weight: undefined,
+      weightKg: undefined,
+      painLevel: undefined,
+      stressLevel: undefined,
       notes: "",
     },
   });
+
+  useEffect(() => {
+    fetchLogs({
+      page: 1,
+      limit: 20,
+      mood: moodFilter,
+      symptom: symptomFilter,
+      startDate,
+      endDate,
+    });
+  }, [endDate, fetchLogs, moodFilter, startDate, symptomFilter]);
 
   const sortedLogs = useMemo(
     () =>
@@ -158,33 +214,25 @@ export default function HealthLogsDashboardPage() {
     [logs]
   );
 
-  const filteredLogs = useMemo(
-    () =>
-      sortedLogs.filter((log) => {
-        const matchesMood = moodFilter === "all" || log.mood === moodFilter;
-        const matchesSymptom =
-          symptomFilter === "all" || log.symptoms.includes(symptomFilter);
-        return matchesMood && matchesSymptom;
-      }),
-    [moodFilter, sortedLogs, symptomFilter]
-  );
-
   const averageSleep = useMemo(() => {
-    if (logs.length === 0) {
+    const sleepLogs = logs.filter((log) => typeof log.sleepHours === "number");
+    if (sleepLogs.length === 0) {
       return "0 hrs";
     }
 
-    const average = logs.reduce((sum, log) => sum + log.sleepHours, 0) / logs.length;
+    const average =
+      sleepLogs.reduce((sum, log) => sum + (log.sleepHours ?? 0), 0) / sleepLogs.length;
     return `${average.toFixed(1)} hrs`;
   }, [logs]);
 
   const averageWater = useMemo(() => {
-    if (logs.length === 0) {
+    const waterLogs = logs.filter((log) => typeof log.waterIntake === "number");
+    if (waterLogs.length === 0) {
       return "0 ml";
     }
 
     const average = Math.round(
-      logs.reduce((sum, log) => sum + log.waterIntake, 0) / logs.length
+      waterLogs.reduce((sum, log) => sum + (log.waterIntake ?? 0), 0) / waterLogs.length
     );
     return `${average.toLocaleString()} ml`;
   }, [logs]);
@@ -208,31 +256,66 @@ export default function HealthLogsDashboardPage() {
     return mood === "No data" ? mood : mood.charAt(0).toUpperCase() + mood.slice(1);
   }, [sortedLogs]);
 
-  const onSubmit = (data: HealthLogFormValues) => {
-    setLogs((currentLogs) => [
-      {
-        id: `health-log-local-${currentLogs.length + 1}-${data.date}`,
-        date: data.date,
-        mood: data.mood,
-        symptoms: data.symptoms,
-        sleepHours: data.sleepHours,
-        waterIntake: data.waterIntake,
-        weight: data.weight,
-        notes: data.notes?.trim() || undefined,
-      },
-      ...currentLogs,
-    ]);
-
+  const resetForm = () => {
     reset({
       date: "",
       mood: "calm",
       symptoms: [],
       sleepHours: undefined,
       waterIntake: undefined,
-      weight: undefined,
+      weightKg: undefined,
+      painLevel: undefined,
+      stressLevel: undefined,
       notes: "",
     });
   };
+
+  const onSubmit = async (data: HealthLogFormValues) => {
+    setFormError("");
+    clearError();
+
+    try {
+      await createLog({
+        date: data.date,
+        mood: data.mood,
+        symptoms: data.symptoms,
+        sleepHours: data.sleepHours,
+        waterIntake: data.waterIntake,
+        weightKg: data.weightKg,
+        painLevel: data.painLevel,
+        stressLevel: data.stressLevel,
+        notes: data.notes?.trim() || undefined,
+      });
+      resetForm();
+    } catch (submitError) {
+      setFormError(
+        submitError instanceof Error ? submitError.message : "Unable to save health log."
+      );
+    }
+  };
+
+  const handleDelete = async (log: HealthLog) => {
+    setFormError("");
+    clearError();
+
+    try {
+      await deleteLog(log._id);
+    } catch (deleteError) {
+      setFormError(
+        deleteError instanceof Error ? deleteError.message : "Unable to delete health log."
+      );
+    }
+  };
+
+  const clearFilters = () => {
+    setMoodFilter("all");
+    setSymptomFilter("all");
+    setStartDate("");
+    setEndDate("");
+  };
+
+  const filtersActive =
+    moodFilter !== "all" || symptomFilter !== "all" || Boolean(startDate) || Boolean(endDate);
 
   return (
     <div className="space-y-6">
@@ -247,6 +330,13 @@ export default function HealthLogsDashboardPage() {
           Log symptoms, mood, sleep, hydration, and notes.
         </p>
       </section>
+
+      {(error || formError) && (
+        <div className="flex items-start gap-2 rounded-3xl border border-destructive/25 bg-destructive/10 p-4 text-sm font-semibold text-destructive">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>{formError || error}</span>
+        </div>
+      )}
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <SummaryCard label="Average sleep" value={averageSleep} icon={Moon} />
@@ -263,7 +353,7 @@ export default function HealthLogsDashboardPage() {
           <div className="mb-5">
             <h3 className="text-lg font-black text-foreground">Add health log</h3>
             <p className="mt-1 text-xs text-muted-foreground">
-              Entries stay local for now and appear in the timeline immediately.
+              Entries are saved securely to your SheCare account.
             </p>
           </div>
 
@@ -368,14 +458,52 @@ export default function HealthLogsDashboardPage() {
               <input
                 type="number"
                 step="0.1"
-                {...register("weight")}
+                {...register("weightKg")}
                 className={cn(
                   "w-full rounded-2xl border bg-muted/10 px-4 py-3 text-sm outline-none transition focus:border-primary/80 focus:ring-1 focus:ring-primary/40",
-                  errors.weight ? "border-destructive/60" : "border-border/80"
+                  errors.weightKg ? "border-destructive/60" : "border-border/80"
                 )}
                 placeholder="63.5 kg"
               />
-              <FieldError message={errors.weight?.message} />
+              <FieldError message={errors.weightKg?.message} />
+            </label>
+          </div>
+
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <label className="space-y-2">
+              <span className="text-xs font-bold uppercase tracking-wide text-foreground/80">
+                Pain level
+              </span>
+              <input
+                type="number"
+                min={0}
+                max={10}
+                {...register("painLevel")}
+                className={cn(
+                  "w-full rounded-2xl border bg-muted/10 px-4 py-3 text-sm outline-none transition focus:border-primary/80 focus:ring-1 focus:ring-primary/40",
+                  errors.painLevel ? "border-destructive/60" : "border-border/80"
+                )}
+                placeholder="0-10"
+              />
+              <FieldError message={errors.painLevel?.message} />
+            </label>
+
+            <label className="space-y-2">
+              <span className="text-xs font-bold uppercase tracking-wide text-foreground/80">
+                Stress level
+              </span>
+              <input
+                type="number"
+                min={0}
+                max={10}
+                {...register("stressLevel")}
+                className={cn(
+                  "w-full rounded-2xl border bg-muted/10 px-4 py-3 text-sm outline-none transition focus:border-primary/80 focus:ring-1 focus:ring-primary/40",
+                  errors.stressLevel ? "border-destructive/60" : "border-border/80"
+                )}
+                placeholder="0-10"
+              />
+              <FieldError message={errors.stressLevel?.message} />
             </label>
           </div>
 
@@ -400,8 +528,8 @@ export default function HealthLogsDashboardPage() {
             disabled={isSubmitting}
             className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-secondary px-4 py-3 text-sm font-bold text-white shadow-md shadow-primary/15 transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-70"
           >
-            <Plus className="h-4 w-4" />
-            Save health log
+            {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+            {isSubmitting ? "Saving..." : "Save health log"}
           </button>
         </form>
 
@@ -450,23 +578,46 @@ export default function HealthLogsDashboardPage() {
               </label>
             </div>
 
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <label className="space-y-2">
+                <span className="text-xs font-bold uppercase tracking-wide text-foreground/80">
+                  Start date
+                </span>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(event) => setStartDate(event.target.value)}
+                  className="w-full rounded-2xl border border-border/80 bg-muted/10 px-4 py-3 text-sm outline-none transition focus:border-primary/80 focus:ring-1 focus:ring-primary/40"
+                />
+              </label>
+
+              <label className="space-y-2">
+                <span className="text-xs font-bold uppercase tracking-wide text-foreground/80">
+                  End date
+                </span>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(event) => setEndDate(event.target.value)}
+                  className="w-full rounded-2xl border border-border/80 bg-muted/10 px-4 py-3 text-sm outline-none transition focus:border-primary/80 focus:ring-1 focus:ring-primary/40"
+                />
+              </label>
+            </div>
+
             <div className="mt-4 rounded-2xl border border-dashed border-border bg-muted/10 p-4">
               <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground">
                 <CalendarDays className="h-4 w-4" />
-                Date range filter placeholder
+                Backend filters are applied automatically.
               </div>
               <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-                Calendar range selection will be connected when date-range controls are added.
+                Mood, symptom, and date range query params are sent to the API.
               </p>
             </div>
 
-            {(moodFilter !== "all" || symptomFilter !== "all") && (
+            {filtersActive && (
               <button
                 type="button"
-                onClick={() => {
-                  setMoodFilter("all");
-                  setSymptomFilter("all");
-                }}
+                onClick={clearFilters}
                 className="mt-4 inline-flex items-center gap-2 rounded-2xl border border-border bg-card px-4 py-2.5 text-xs font-bold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               >
                 <X className="h-4 w-4" />
@@ -489,7 +640,7 @@ export default function HealthLogsDashboardPage() {
             <div className="rounded-3xl border border-border/60 bg-card p-4 shadow-sm">
               <Scale className="h-5 w-5 text-emerald-500" />
               <p className="mt-2 text-xs font-bold text-muted-foreground">Weight logs</p>
-              <p className="text-lg font-black">{logs.length}</p>
+              <p className="text-lg font-black">{pagination.total}</p>
             </div>
           </div>
         </div>
@@ -500,13 +651,19 @@ export default function HealthLogsDashboardPage() {
           <div>
             <h3 className="text-lg font-black text-foreground">Recent logs timeline</h3>
             <p className="mt-1 text-xs text-muted-foreground">
-              Showing {filteredLogs.length} of {logs.length} local entries.
+              Showing {logs.length} of {pagination.total} saved entries.
             </p>
           </div>
+          {isLoading && (
+            <span className="inline-flex items-center gap-2 text-xs font-bold text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Loading logs...
+            </span>
+          )}
         </div>
 
         <div className="relative space-y-4 before:absolute before:bottom-2 before:left-4 before:top-2 before:w-px before:bg-border">
-          {filteredLogs.length === 0 ? (
+          {!isLoading && sortedLogs.length === 0 ? (
             <div className="rounded-3xl border border-dashed border-border bg-card p-6 text-center">
               <p className="text-sm font-bold text-foreground">No logs match these filters.</p>
               <p className="mt-1 text-xs text-muted-foreground">
@@ -514,8 +671,8 @@ export default function HealthLogsDashboardPage() {
               </p>
             </div>
           ) : (
-            filteredLogs.map((log) => (
-              <article key={log.id} className="relative pl-10">
+            sortedLogs.map((log) => (
+              <article key={log._id} className="relative pl-10">
                 <span className="absolute left-2 top-5 h-4 w-4 rounded-full border-4 border-background bg-primary shadow-sm" />
                 <div className="rounded-3xl border border-border/60 bg-card p-5 shadow-sm">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -533,16 +690,31 @@ export default function HealthLogsDashboardPage() {
                           {log.mood}
                         </span>
                         <span className="text-xs font-semibold text-muted-foreground">
-                          {log.sleepHours}h sleep
+                          {log.sleepHours ?? 0}h sleep
                         </span>
                         <span className="text-xs font-semibold text-muted-foreground">
-                          {log.waterIntake.toLocaleString()}ml water
+                          {(log.waterIntake ?? 0).toLocaleString()}ml water
                         </span>
                         <span className="text-xs font-semibold text-muted-foreground">
-                          {log.weight}kg
+                          {log.weightKg ?? "-"}kg
+                        </span>
+                        <span className="text-xs font-semibold text-muted-foreground">
+                          Pain {log.painLevel ?? 0}/10
+                        </span>
+                        <span className="text-xs font-semibold text-muted-foreground">
+                          Stress {log.stressLevel ?? 0}/10
                         </span>
                       </div>
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(log)}
+                      disabled={isSubmitting}
+                      className="inline-flex items-center gap-2 rounded-2xl border border-border bg-card px-3 py-2 text-xs font-bold text-destructive transition-colors hover:bg-destructive/10 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Delete
+                    </button>
                   </div>
 
                   <div className="mt-4 flex flex-wrap gap-2">
