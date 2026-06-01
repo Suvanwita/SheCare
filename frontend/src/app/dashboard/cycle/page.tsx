@@ -26,18 +26,29 @@ import {
   Trash2,
   TrendingUp,
 } from "lucide-react";
-import {
-  FLOW_INTENSITY_VALUES,
-  MOCK_CYCLE_ENTRIES,
-  type CycleEntry,
-} from "../../../data/mockCycle";
-import { cn, formatDate } from "../../../lib/utils";
+import { useCycleStore } from "../../../store/cycleStore";
+import type { Cycle, FlowIntensity } from "../../../services/cycle.service";
 import {
   predictCycleIrregularity,
   type CycleIrregularityPrediction,
 } from "../../../services/cycleMl.service";
+import { cn, formatDate } from "../../../lib/utils";
 
-const DAY_IN_MS = 24 * 60 * 60 * 1000;
+const FLOW_INTENSITY_VALUES: Record<FlowIntensity, number> = {
+  light: 1,
+  medium: 2,
+  heavy: 3,
+};
+
+const CYCLE_SYMPTOM_OPTIONS = [
+  "cramps",
+  "headache",
+  "bloating",
+  "fatigue",
+  "nausea",
+  "mood_swings",
+  "back_pain",
+];
 
 const cycleSchema = z
   .object({
@@ -46,6 +57,7 @@ const cycleSchema = z
     flowIntensity: z.enum(["light", "medium", "heavy"], {
       message: "Select a flow intensity",
     }),
+    symptoms: z.array(z.string()).default([]),
     age: z.coerce.number({ message: "Age is required" }).min(10, "Enter a valid age").max(65, "Enter a valid age"),
     cycle_length: z.coerce.number({ message: "Cycle length is required" }).min(1, "Enter cycle length").max(120, "Check this value"),
     period_duration: z.coerce.number({ message: "Period duration is required" }).min(1, "Enter period duration").max(30, "Check this value"),
@@ -68,8 +80,44 @@ type CycleFormInput = z.input<typeof cycleSchema>;
 type CycleFormValues = z.output<typeof cycleSchema>;
 
 function parseDate(value: string) {
-  const [year, month, day] = value.split("-").map(Number);
+  const [year, month, day] = value.slice(0, 10).split("-").map(Number);
   return new Date(year, month - 1, day);
+}
+
+function getLatestCycle(cycles: Cycle[]) {
+  return [...cycles].sort(
+    (a, b) => parseDate(b.startDate).getTime() - parseDate(a.startDate).getTime()
+  )[0];
+}
+
+function getCurrentCycleDay(latestCycle?: Cycle) {
+  if (!latestCycle) {
+    return 1;
+  }
+
+  const dayInMs = 24 * 60 * 60 * 1000;
+  return Math.max(
+    1,
+    Math.round((new Date().getTime() - parseDate(latestCycle.startDate).getTime()) / dayInMs) +
+      1
+  );
+}
+
+function formatSymptomLabel(symptom: string) {
+  return symptom.replaceAll("_", " ").replace(/^\w/, (letter) => letter.toUpperCase());
+}
+
+function FieldError({ message }: { message?: string }) {
+  if (!message) {
+    return null;
+  }
+
+  return (
+    <p className="flex items-center gap-1 text-xs font-semibold text-destructive">
+      <AlertCircle className="h-3.5 w-3.5" />
+      {message}
+    </p>
+  );
 }
 
 function NumericField({
@@ -127,70 +175,6 @@ function InsightBadge({ level }: { level: CycleIrregularityPrediction["risk_leve
   );
 }
 
-function addDays(date: Date, days: number) {
-  const nextDate = new Date(date);
-  nextDate.setDate(nextDate.getDate() + days);
-  return nextDate;
-}
-
-function getInclusiveLength(startDate: string, endDate: string) {
-  return Math.max(1, Math.round((parseDate(endDate).getTime() - parseDate(startDate).getTime()) / DAY_IN_MS) + 1);
-}
-
-function getSortedEntries(entries: CycleEntry[]) {
-  return [...entries].sort(
-    (a, b) => parseDate(a.startDate).getTime() - parseDate(b.startDate).getTime()
-  );
-}
-
-function getStartDateIntervals(entries: CycleEntry[]) {
-  const sortedEntries = getSortedEntries(entries);
-  return sortedEntries.slice(1).map((entry, index) => {
-    const previousEntry = sortedEntries[index];
-    return Math.round(
-      (parseDate(entry.startDate).getTime() - parseDate(previousEntry.startDate).getTime()) /
-        DAY_IN_MS
-    );
-  });
-}
-
-function getAverageCycleLength(entries: CycleEntry[]) {
-  const intervals = getStartDateIntervals(entries);
-  if (intervals.length === 0) {
-    return 28;
-  }
-
-  return Math.round(intervals.reduce((sum, length) => sum + length, 0) / intervals.length);
-}
-
-function getCycleStatus(entries: CycleEntry[]) {
-  const intervals = getStartDateIntervals(entries);
-  if (intervals.length < 2) {
-    return "Regular";
-  }
-
-  return Math.max(...intervals) - Math.min(...intervals) <= 7 ? "Regular" : "Irregular";
-}
-
-function getLatestEntry(entries: CycleEntry[]) {
-  return [...entries].sort(
-    (a, b) => parseDate(b.startDate).getTime() - parseDate(a.startDate).getTime()
-  )[0];
-}
-
-function FieldError({ message }: { message?: string }) {
-  if (!message) {
-    return null;
-  }
-
-  return (
-    <p className="flex items-center gap-1 text-xs font-semibold text-destructive">
-      <AlertCircle className="h-3.5 w-3.5" />
-      {message}
-    </p>
-  );
-}
-
 function PredictionMetric({
   label,
   value,
@@ -216,21 +200,32 @@ function PredictionMetric({
 }
 
 export default function CycleDashboardPage() {
-  const [entries, setEntries] = useState<CycleEntry[]>(MOCK_CYCLE_ENTRIES);
+  const cycles = useCycleStore((state) => state.cycles);
+  const pagination = useCycleStore((state) => state.pagination);
+  const isLoading = useCycleStore((state) => state.isLoading);
+  const isSubmitting = useCycleStore((state) => state.isSubmitting);
+  const error = useCycleStore((state) => state.error);
+  const fetchCycles = useCycleStore((state) => state.fetchCycles);
+  const createCycle = useCycleStore((state) => state.createCycle);
+  const deleteCycle = useCycleStore((state) => state.deleteCycle);
+  const clearError = useCycleStore((state) => state.clearError);
   const [chartsReady, setChartsReady] = useState(false);
+  const [formError, setFormError] = useState("");
   const [cycleInsight, setCycleInsight] = useState<CycleIrregularityPrediction | null>(null);
   const [insightError, setInsightError] = useState<string | null>(null);
+
   const {
     register,
     handleSubmit,
     reset,
-    formState: { errors, isSubmitting },
+    formState: { errors },
   } = useForm<CycleFormInput, unknown, CycleFormValues>({
     resolver: zodResolver(cycleSchema),
     defaultValues: {
       startDate: "",
       endDate: "",
       flowIntensity: "medium",
+      symptoms: [],
       age: undefined,
       cycle_length: undefined,
       period_duration: undefined,
@@ -247,6 +242,10 @@ export default function CycleDashboardPage() {
   });
 
   useEffect(() => {
+    fetchCycles();
+  }, [fetchCycles]);
+
+  useEffect(() => {
     const timer = setTimeout(() => {
       setChartsReady(true);
     }, 0);
@@ -254,71 +253,81 @@ export default function CycleDashboardPage() {
     return () => clearTimeout(timer);
   }, []);
 
-  const latestEntry = useMemo(() => getLatestEntry(entries), [entries]);
-  const averageCycleLength = useMemo(() => getAverageCycleLength(entries), [entries]);
-  const cycleStatus = useMemo(() => getCycleStatus(entries), [entries]);
-  const currentCycleDay = useMemo(() => {
-    if (!latestEntry) {
-      return 1;
-    }
-
-    return Math.max(
-      1,
-      Math.round((new Date().getTime() - parseDate(latestEntry.startDate).getTime()) / DAY_IN_MS) +
-        1
-    );
-  }, [latestEntry]);
-
-  const predictedNextPeriod = latestEntry
-    ? formatDate(addDays(parseDate(latestEntry.startDate), averageCycleLength))
-    : "Add a cycle";
-
-  const sortedEntriesDescending = useMemo(
+  const latestCycle = useMemo(() => getLatestCycle(cycles), [cycles]);
+  const sortedCyclesDescending = useMemo(
     () =>
-      [...entries].sort(
+      [...cycles].sort(
         (a, b) => parseDate(b.startDate).getTime() - parseDate(a.startDate).getTime()
       ),
-    [entries]
+    [cycles]
   );
+  const cycleStatus = cycleInsight?.cycle_pattern ?? "Awaiting ML result";
+  const currentCycleDay = getCurrentCycleDay(latestCycle);
+  const averageCycleLength = useMemo(() => {
+    const lengths = cycles
+      .map((cycle) => cycle.cycleLength)
+      .filter((length): length is number => typeof length === "number");
 
-  const cycleLengthTrend = useMemo(() => {
-    const sortedEntries = getSortedEntries(entries);
-    return sortedEntries.slice(1).map((entry, index) => {
-      const previousEntry = sortedEntries[index];
-      return {
-        cycle: formatDate(entry.startDate),
-        length: Math.round(
-          (parseDate(entry.startDate).getTime() - parseDate(previousEntry.startDate).getTime()) /
-            DAY_IN_MS
-        ),
-      };
-    });
-  }, [entries]);
+    if (lengths.length === 0) {
+      return 28;
+    }
+
+    return Math.round(lengths.reduce((sum, length) => sum + length, 0) / lengths.length);
+  }, [cycles]);
+  const averagePeriodDuration = useMemo(() => {
+    const durations = cycles
+      .map((cycle) => cycle.periodDuration)
+      .filter((duration): duration is number => typeof duration === "number");
+
+    if (durations.length === 0) {
+      return 0;
+    }
+
+    return Math.round(durations.reduce((sum, duration) => sum + duration, 0) / durations.length);
+  }, [cycles]);
+
+  const cycleLengthTrend = useMemo(
+    () =>
+      [...cycles]
+        .sort((a, b) => parseDate(a.startDate).getTime() - parseDate(b.startDate).getTime())
+        .filter((cycle) => typeof cycle.cycleLength === "number")
+        .map((cycle) => ({
+          cycle: formatDate(cycle.startDate),
+          length: cycle.cycleLength,
+        })),
+    [cycles]
+  );
 
   const flowTrend = useMemo(
     () =>
-      getSortedEntries(entries).map((entry) => ({
-        cycle: formatDate(entry.startDate),
-        flow: FLOW_INTENSITY_VALUES[entry.flowIntensity],
-        label: entry.flowIntensity,
-      })),
-    [entries]
+      [...cycles]
+        .sort((a, b) => parseDate(a.startDate).getTime() - parseDate(b.startDate).getTime())
+        .map((cycle) => ({
+          cycle: formatDate(cycle.startDate),
+          flow: FLOW_INTENSITY_VALUES[cycle.flowIntensity],
+          label: cycle.flowIntensity,
+        })),
+    [cycles]
   );
 
   const onSubmit = async (data: CycleFormValues) => {
+    setFormError("");
     setInsightError(null);
     setCycleInsight(null);
+    clearError();
 
-    setEntries((currentEntries) => [
-      {
-        id: `cycle-local-${currentEntries.length + 1}-${data.startDate}`,
+    try {
+      await createCycle({
         startDate: data.startDate,
         endDate: data.endDate,
         flowIntensity: data.flowIntensity,
+        symptoms: data.symptoms,
         notes: data.notes?.trim() || undefined,
-      },
-      ...currentEntries,
-    ]);
+      });
+    } catch (submitError) {
+      setFormError(submitError instanceof Error ? submitError.message : "Unable to save cycle.");
+      return;
+    }
 
     try {
       const insight = await predictCycleIrregularity({
@@ -335,31 +344,38 @@ export default function CycleDashboardPage() {
         previous_cycle_length: data.previous_cycle_length,
       });
       setCycleInsight(insight);
+      reset({
+        startDate: "",
+        endDate: "",
+        flowIntensity: "medium",
+        symptoms: [],
+        age: undefined,
+        cycle_length: undefined,
+        period_duration: undefined,
+        stress_level: 5,
+        sleep_hours: undefined,
+        exercise_frequency: undefined,
+        bmi: undefined,
+        mood_score: 5,
+        pain_level: 0,
+        weight_change: 0,
+        previous_cycle_length: undefined,
+        notes: "",
+      });
     } catch {
-      setInsightError("Cycle saved, but cycle insight is temporarily unavailable.");
+      setInsightError("Cycle saved, but ML cycle insight is temporarily unavailable.");
     }
-
-    reset({
-      startDate: "",
-      endDate: "",
-      flowIntensity: "medium",
-      age: undefined,
-      cycle_length: undefined,
-      period_duration: undefined,
-      stress_level: 5,
-      sleep_hours: undefined,
-      exercise_frequency: undefined,
-      bmi: undefined,
-      mood_score: 5,
-      pain_level: 0,
-      weight_change: 0,
-      previous_cycle_length: undefined,
-      notes: "",
-    });
   };
 
-  const deleteEntry = (id: string) => {
-    setEntries((currentEntries) => currentEntries.filter((entry) => entry.id !== id));
+  const handleDelete = async (cycle: Cycle) => {
+    setFormError("");
+    clearError();
+
+    try {
+      await deleteCycle(cycle._id);
+    } catch (deleteError) {
+      setFormError(deleteError instanceof Error ? deleteError.message : "Unable to delete cycle.");
+    }
   };
 
   return (
@@ -374,7 +390,7 @@ export default function CycleDashboardPage() {
               Cycle Tracker
             </h2>
             <p className="mt-2 text-sm text-muted-foreground">
-              Track your menstrual cycle and understand your patterns.
+              Track your menstrual cycle. Entries are stored in SheCare; results come from the ML model.
             </p>
           </div>
 
@@ -383,7 +399,9 @@ export default function CycleDashboardPage() {
               "inline-flex w-fit items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-black",
               cycleStatus === "Regular"
                 ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                : "border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                : cycleStatus === "Irregular"
+                  ? "border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400"
+                  : "border-border bg-card text-muted-foreground"
             )}
           >
             <Sparkles className="h-3.5 w-3.5" />
@@ -391,6 +409,13 @@ export default function CycleDashboardPage() {
           </div>
         </div>
       </section>
+
+      {(error || formError) && (
+        <div className="flex items-start gap-2 rounded-3xl border border-destructive/25 bg-destructive/10 p-4 text-sm font-semibold text-destructive">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>{formError || error}</span>
+        </div>
+      )}
 
       <section className="grid gap-6 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
         <form
@@ -400,7 +425,7 @@ export default function CycleDashboardPage() {
           <div className="mb-5">
             <h3 className="text-lg font-black text-foreground">Add cycle entry</h3>
             <p className="mt-1 text-xs text-muted-foreground">
-              New entries update predictions, history, and charts immediately.
+              Cycle dates are saved to the backend. The insight below is generated by the ML model.
             </p>
           </div>
 
@@ -454,10 +479,33 @@ export default function CycleDashboardPage() {
             <FieldError message={errors.flowIntensity?.message} />
           </label>
 
+          <div className="mt-4 space-y-2">
+            <span className="text-xs font-bold uppercase tracking-wide text-foreground/80">
+              Symptoms
+            </span>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {CYCLE_SYMPTOM_OPTIONS.map((symptom) => (
+                <label
+                  key={symptom}
+                  className="flex items-center gap-2 rounded-2xl border border-border/70 bg-muted/10 px-3 py-2.5 text-xs font-bold text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
+                >
+                  <input
+                    type="checkbox"
+                    value={symptom}
+                    {...register("symptoms")}
+                    className="h-4 w-4 accent-primary"
+                  />
+                  {formatSymptomLabel(symptom)}
+                </label>
+              ))}
+            </div>
+            <FieldError message={errors.symptoms?.message} />
+          </div>
+
           <div className="mt-5 border-t border-border/60 pt-5">
             <h4 className="text-sm font-black text-foreground">Cycle Insight Inputs</h4>
             <p className="mt-1 text-xs text-muted-foreground">
-              These values are sent only to the cycle ML service.
+              These values are sent only to the cycle ML service and are not stored in the database.
             </p>
 
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
@@ -497,87 +545,87 @@ export default function CycleDashboardPage() {
             className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-secondary px-4 py-3 text-sm font-bold text-white shadow-md shadow-primary/15 transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-70"
           >
             {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-            {isSubmitting ? "Analyzing cycle pattern..." : "Add cycle"}
+            {isSubmitting ? "Saving and analyzing..." : "Add cycle"}
           </button>
         </form>
 
         <div className="grid gap-4 sm:grid-cols-2">
           <PredictionMetric label="Current cycle day" value={`Day ${currentCycleDay}`} icon={CalendarDays} />
-          <PredictionMetric label="Average cycle length" value={`${averageCycleLength} days`} icon={TrendingUp} />
-          <PredictionMetric label="Predicted next period" value={predictedNextPeriod} icon={Sparkles} />
-          <PredictionMetric label="Fertile window" value="Day 12-17 estimate" icon={Gauge} />
+          <PredictionMetric label="Stored average cycle" value={`${averageCycleLength} days`} icon={TrendingUp} />
+          <PredictionMetric label="Stored average period" value={`${averagePeriodDuration} days`} icon={Gauge} />
+          <PredictionMetric label="ML pattern" value={cycleInsight?.cycle_pattern ?? "Run analysis"} icon={Sparkles} />
         </div>
       </section>
 
       {(cycleInsight || insightError) && (
         <section className="glass-card rounded-3xl border border-border/60 p-6 shadow-sm">
-          <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div className="flex items-center gap-2">
-              <ShieldAlert className="h-5 w-5 text-primary" />
-              <div>
-                <h3 className="text-lg font-black text-foreground">Cycle Insight</h3>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  ML-backed cycle irregularity analysis from the cycle service.
-                </p>
-              </div>
+        <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex items-center gap-2">
+            <ShieldAlert className="h-5 w-5 text-primary" />
+            <div>
+              <h3 className="text-lg font-black text-foreground">Cycle Insight</h3>
+              <p className="mt-1 text-xs text-muted-foreground">
+                ML-backed cycle irregularity analysis from the cycle service.
+              </p>
             </div>
-            {cycleInsight && <InsightBadge level={cycleInsight.risk_level} />}
           </div>
+          {cycleInsight && <InsightBadge level={cycleInsight.risk_level} />}
+        </div>
 
-          {insightError ? (
-            <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4 text-sm font-semibold text-amber-700 dark:text-amber-300">
-              {insightError}
+        {insightError ? (
+          <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4 text-sm font-semibold text-amber-700 dark:text-amber-300">
+            {insightError}
+          </div>
+        ) : null}
+
+        {cycleInsight ? (
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
+            <div className="rounded-3xl border border-primary/20 bg-primary/10 p-5">
+              <p className="text-xs font-bold uppercase tracking-wide text-primary">
+                Cycle Pattern
+              </p>
+              <p className="mt-2 text-3xl font-black text-foreground">
+                {cycleInsight.cycle_pattern}
+              </p>
+              <p className="mt-4 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                Probability
+              </p>
+              <p className="mt-1 text-2xl font-black text-foreground">
+                {Math.round(cycleInsight.probability * 100)}%
+              </p>
             </div>
-          ) : null}
 
-          {cycleInsight ? (
-            <div className="grid gap-5 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
-              <div className="rounded-3xl border border-primary/20 bg-primary/10 p-5">
-                <p className="text-xs font-bold uppercase tracking-wide text-primary">
-                  Cycle Pattern
-                </p>
-                <p className="mt-2 text-3xl font-black text-foreground">
-                  {cycleInsight.cycle_pattern}
-                </p>
-                <p className="mt-4 text-xs font-bold uppercase tracking-wide text-muted-foreground">
-                  Probability
-                </p>
-                <p className="mt-1 text-2xl font-black text-foreground">
-                  {Math.round(cycleInsight.probability * 100)}%
-                </p>
-              </div>
-
-              <div className="space-y-4">
-                <div className="grid gap-3 sm:grid-cols-2">
-                  {cycleInsight.contributing_factors.map((factor) => (
-                    <div
-                      key={factor.factor}
-                      className="rounded-2xl border border-border/60 bg-card p-4"
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="text-sm font-black text-foreground">
-                          {factor.factor.replaceAll("_", " ").charAt(0).toUpperCase()+factor.factor.replaceAll("_", " ").slice(1)}
-                        </p>
-                        <span className="rounded-full border border-primary/20 bg-primary/10 px-2 py-1 text-xs font-black text-primary">
-                          {Math.round(factor.impact * 100)}%
-                        </span>
-                      </div>
-                      <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-                        {factor.description}
+            <div className="space-y-4">
+              <div className="grid gap-3 sm:grid-cols-2">
+                {cycleInsight.contributing_factors.map((factor) => (
+                  <div
+                    key={factor.factor}
+                    className="rounded-2xl border border-border/60 bg-card p-4"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-black text-foreground">
+                        {formatSymptomLabel(factor.factor)}
                       </p>
+                      <span className="rounded-full border border-primary/20 bg-primary/10 px-2 py-1 text-xs font-black text-primary">
+                        {Math.round(factor.impact * 100)}%
+                      </span>
                     </div>
-                  ))}
-                </div>
-
-                <p className="rounded-2xl border border-border/60 bg-muted/20 p-4 text-sm leading-relaxed text-muted-foreground">
-                  {cycleInsight.recommendation}
-                </p>
-                <p className="rounded-2xl border border-rose-500/20 bg-rose-500/10 p-4 text-xs leading-relaxed text-muted-foreground">
-                  {cycleInsight.disclaimer}
-                </p>
+                    <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                      {factor.description}
+                    </p>
+                  </div>
+                ))}
               </div>
+
+              <p className="rounded-2xl border border-border/60 bg-muted/20 p-4 text-sm leading-relaxed text-muted-foreground">
+                {cycleInsight.recommendation}
+              </p>
+              <p className="rounded-2xl border border-rose-500/20 bg-rose-500/10 p-4 text-xs leading-relaxed text-muted-foreground">
+                {cycleInsight.disclaimer}
+              </p>
             </div>
-          ) : null}
+          </div>
+        ) : null}
         </section>
       )}
 
@@ -586,54 +634,77 @@ export default function CycleDashboardPage() {
           <div>
             <h3 className="text-lg font-black text-foreground">Cycle history</h3>
             <p className="mt-1 text-xs text-muted-foreground">
-              Local entries are kept in state for this session.
+              Showing saved cycle entries from your SheCare account.
             </p>
           </div>
-          <span className="text-xs font-bold text-muted-foreground">{entries.length} entries</span>
+          <span className="text-xs font-bold text-muted-foreground">
+            {isLoading ? "Loading..." : `${pagination.total} entries`}
+          </span>
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[780px] border-separate border-spacing-y-2 text-left text-sm">
+          <table className="w-full min-w-[900px] border-separate border-spacing-y-2 text-left text-sm">
             <thead>
               <tr className="text-xs uppercase tracking-wide text-muted-foreground">
                 <th className="px-3 py-2">Start date</th>
                 <th className="px-3 py-2">End date</th>
-                <th className="px-3 py-2">Length</th>
+                <th className="px-3 py-2">Cycle length</th>
+                <th className="px-3 py-2">Period</th>
                 <th className="px-3 py-2">Flow</th>
+                <th className="px-3 py-2">Symptoms</th>
                 <th className="px-3 py-2">Notes</th>
                 <th className="px-3 py-2 text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {sortedEntriesDescending.map((entry) => (
-                <tr key={entry.id} className="rounded-2xl bg-card shadow-sm">
-                  <td className="rounded-l-2xl px-3 py-3 font-bold text-foreground">
-                    {formatDate(entry.startDate)}
-                  </td>
-                  <td className="px-3 py-3 text-muted-foreground">{formatDate(entry.endDate)}</td>
-                  <td className="px-3 py-3 font-semibold">
-                    {getInclusiveLength(entry.startDate, entry.endDate)} days
-                  </td>
-                  <td className="px-3 py-3">
-                    <span className="rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-xs font-bold capitalize text-primary">
-                      {entry.flowIntensity}
-                    </span>
-                  </td>
-                  <td className="max-w-xs px-3 py-3 text-xs leading-relaxed text-muted-foreground">
-                    {entry.notes || "No notes"}
-                  </td>
-                  <td className="rounded-r-2xl px-3 py-3 text-right">
-                    <button
-                      type="button"
-                      onClick={() => deleteEntry(entry.id)}
-                      className="inline-flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-                      aria-label="Delete cycle entry"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+              {sortedCyclesDescending.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="rounded-2xl bg-card px-3 py-6 text-center text-sm font-semibold text-muted-foreground">
+                    No cycle entries yet.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                sortedCyclesDescending.map((cycle) => (
+                  <tr key={cycle._id} className="rounded-2xl bg-card shadow-sm">
+                    <td className="rounded-l-2xl px-3 py-3 font-bold text-foreground">
+                      {formatDate(cycle.startDate)}
+                    </td>
+                    <td className="px-3 py-3 text-muted-foreground">
+                      {cycle.endDate ? formatDate(cycle.endDate) : "-"}
+                    </td>
+                    <td className="px-3 py-3 font-semibold">
+                      {cycle.cycleLength ?? "-"} days
+                    </td>
+                    <td className="px-3 py-3 font-semibold">
+                      {cycle.periodDuration ?? "-"} days
+                    </td>
+                    <td className="px-3 py-3">
+                      <span className="rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-xs font-bold capitalize text-primary">
+                        {cycle.flowIntensity}
+                      </span>
+                    </td>
+                    <td className="px-3 py-3 text-xs text-muted-foreground">
+                      {cycle.symptoms.length > 0
+                        ? cycle.symptoms.map(formatSymptomLabel).join(", ")
+                        : "None"}
+                    </td>
+                    <td className="max-w-xs px-3 py-3 text-xs leading-relaxed text-muted-foreground">
+                      {cycle.notes || "No notes"}
+                    </td>
+                    <td className="rounded-r-2xl px-3 py-3 text-right">
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(cycle)}
+                        disabled={isSubmitting}
+                        className="inline-flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:cursor-not-allowed disabled:opacity-60"
+                        aria-label="Delete cycle entry"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -642,7 +713,7 @@ export default function CycleDashboardPage() {
       <section className="grid gap-6 xl:grid-cols-2">
         <div className="glass-card rounded-3xl border border-border/60 p-6 shadow-sm">
           <h3 className="text-lg font-black text-foreground">Cycle length trend</h3>
-          <p className="mt-1 text-xs text-muted-foreground">Based on days between period start dates.</p>
+          <p className="mt-1 text-xs text-muted-foreground">Based on stored cycle history.</p>
           <div className="mt-5 h-[300px] min-w-0">
             {chartsReady && (
               <ResponsiveContainer width="100%" height="100%">
