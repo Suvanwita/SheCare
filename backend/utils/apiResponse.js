@@ -1,9 +1,14 @@
 const successResponse = (res, statusCode, message, data) => {
-  return res.status(statusCode).json({
+  const response = {
     success: true,
-    message,
-    data
-  });
+    message
+  };
+
+  if (data !== undefined) {
+    response.data = data;
+  }
+
+  return res.status(statusCode).json(response);
 };
 
 module.exports = {

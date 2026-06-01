@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -23,6 +23,8 @@ export default function LoginPage() {
   const login = useAuthStore((state) => state.login);
   const authError = useAuthStore((state) => state.error);
   const isLoading = useAuthStore((state) => state.isLoading);
+  const hasHydrated = useAuthStore((state) => state.hasHydrated);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const {
     register,
     handleSubmit,
@@ -48,6 +50,20 @@ export default function LoginPage() {
   const handleInvalidSubmit = () => {
     setFormError("Please fix the highlighted fields before continuing.");
   };
+
+  useEffect(() => {
+    if (hasHydrated && isAuthenticated) {
+      router.replace("/dashboard");
+    }
+  }, [hasHydrated, isAuthenticated, router]);
+
+  if (!hasHydrated || isAuthenticated) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background text-sm font-bold text-muted-foreground">
+        Loading...
+      </div>
+    );
+  }
 
   return (
     <AuthShell

@@ -15,6 +15,7 @@ export default function DashboardShell({ children }: DashboardShellProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [hasCheckedSession, setHasCheckedSession] = useState(false);
   const user = useAuthStore((state) => state.user);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const isLoading = useAuthStore((state) => state.isLoading);
@@ -37,14 +38,17 @@ export default function DashboardShell({ children }: DashboardShellProps) {
       return;
     }
 
-    if (!user) {
-      fetchMe().catch(() => {
+    fetchMe()
+      .then(() => {
+        setHasCheckedSession(true);
+      })
+      .catch(() => {
+        setHasCheckedSession(true);
         router.replace("/login");
       });
-    }
-  }, [fetchMe, hasHydrated, isAuthenticated, router, user]);
+  }, [fetchMe, hasHydrated, isAuthenticated, router]);
 
-  if (!hasHydrated || isLoading || !isAuthenticated || !user) {
+  if (!hasHydrated || !hasCheckedSession || isLoading || !isAuthenticated || !user) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-muted/20 text-sm font-bold text-muted-foreground">
         Loading your dashboard...

@@ -1,41 +1,90 @@
-# SheCare - Women's Health, Wellness & Self-Care Platform
+# SheCare
 
-Welcome to **SheCare**, an intelligent, premium full-stack platform designed to empower women's health, wellness, and self-care journeys.
+SheCare is a full-stack women's health and wellness platform. The current integration focus is authentication between the Next.js frontend and Express/MongoDB backend.
 
 ## Project Structure
 
-This repository is structured as a multi-component monorepo:
-
 ```text
-shecare/
-├── frontend/    # Next.js 14+ TypeScript Web Application (Fully Configured)
-├── backend/     # Python or Node.js Backend API Service (Placeholder - Coming Soon)
-└── ml-model/    # ML/AI Models for Health Recommendations (Placeholder - Coming Soon)
+SheCare/
+├── frontend/    # Next.js TypeScript app
+├── backend/     # Express, MongoDB, Mongoose API
+└── ml-model/    # ML services and experiments
 ```
 
-## Getting Started
+## Run Backend
 
-### Frontend Web App
+```bash
+cd backend
+npm install
+cp .env.example .env
+npm run dev
+```
 
-The frontend is fully set up using Next.js 14 (App Router), TypeScript, Tailwind CSS, and next-themes for dark/light capability.
+Backend runs on `http://localhost:5000`.
 
-To run the frontend:
-1. Navigate to the `frontend/` directory:
-   ```bash
-   cd frontend
-   ```
-2. Install dependencies (already installed during setup):
-   ```bash
-   npm install
-   ```
-3. Start the local development server:
-   ```bash
-   npm run dev
-   ```
-4. Open [http://localhost:3000](http://localhost:3000) in your browser.
+Required backend auth env variables:
 
-## Features Envisioned
-- **Cycle & Period Tracker**: Keep log of phases, ovulation days, and wellness routines.
-- **Interactive Wellness Analytics**: Beautiful charts analyzing water intake, sleep patterns, stress, and physical activities.
-- **Symptom Tracker**: Structured Daily Symptom Logger validated using Zod schemas.
-- **AI Symptom Consultation Assistant**: Personalized smart insights based on symptom logs and historical patterns.
+```env
+PORT=5000
+MONGO_URI=mongodb://127.0.0.1:27017/shecare
+JWT_ACCESS_SECRET=your_access_secret
+JWT_REFRESH_SECRET=your_refresh_secret
+ACCESS_TOKEN_EXPIRES_IN=15m
+REFRESH_TOKEN_EXPIRES_IN=7d
+CLIENT_URL=http://localhost:3000
+```
+
+## Run Frontend
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Frontend runs on `http://localhost:3000`.
+
+Required frontend auth env variable:
+
+```env
+NEXT_PUBLIC_API_URL=http://localhost:5000/api
+```
+
+## Auth Endpoints
+
+- `GET /health`
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+- `POST /api/auth/refresh`
+- `POST /api/auth/logout`
+- `GET /api/auth/me`
+
+Protected requests use:
+
+```http
+Authorization: Bearer <accessToken>
+```
+
+## Test Credentials Example
+
+Register a local test user with:
+
+```json
+{
+  "fullName": "SheCare Test User",
+  "email": "test.user@example.com",
+  "password": "Password123",
+  "role": "user"
+}
+```
+
+Use the same email and password to log in.
+
+## Auth Flow
+
+1. A user registers or logs in from `/register` or `/login`.
+2. Backend hashes the password, returns the user, an access token, and a refresh token.
+3. Frontend stores auth state in Zustand persistence and attaches the access token to API requests.
+4. Dashboard routes validate the session with `/api/auth/me`; unauthenticated users are redirected to `/login`.
+5. If an API request returns `401`, the frontend calls `/api/auth/refresh` with the refresh token and retries the original request once.
+6. Logout revokes the refresh-token session on the backend, clears frontend auth state, and redirects to `/login`.
