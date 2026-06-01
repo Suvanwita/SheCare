@@ -7,7 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { AlertCircle, ChevronDown, Loader2, Lock, Mail, User } from "lucide-react";
 import AuthShell from "../../components/auth/AuthShell";
-import { register as registerUser } from "../../lib/authApi";
+import { useAuthStore } from "../../store/authStore";
 import { cn } from "../../lib/utils";
 
 const registerSchema = z
@@ -30,6 +30,9 @@ type RegisterFormValues = z.infer<typeof registerSchema>;
 export default function RegisterPage() {
   const router = useRouter();
   const [formError, setFormError] = useState("");
+  const registerAccount = useAuthStore((state) => state.register);
+  const authError = useAuthStore((state) => state.error);
+  const isLoading = useAuthStore((state) => state.isLoading);
   const {
     register,
     handleSubmit,
@@ -48,7 +51,7 @@ export default function RegisterPage() {
   const onSubmit = async (data: RegisterFormValues) => {
     setFormError("");
     try {
-      await registerUser({
+      await registerAccount({
         fullName: data.fullName,
         email: data.email,
         password: data.password,
@@ -73,10 +76,10 @@ export default function RegisterPage() {
       footerLinkText="Sign in"
     >
       <form onSubmit={handleSubmit(onSubmit, handleInvalidSubmit)} className="space-y-4">
-        {formError && (
+        {(formError || authError) && (
           <div className="flex items-start gap-2 rounded-2xl border border-destructive/25 bg-destructive/10 p-3 text-xs font-semibold text-destructive">
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-            <span>{formError}</span>
+            <span>{formError || authError}</span>
           </div>
         )}
 
@@ -196,11 +199,11 @@ export default function RegisterPage() {
 
         <button
           type="submit"
-          disabled={isSubmitting}
+          disabled={isSubmitting || isLoading}
           className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-secondary px-4 py-3 text-sm font-bold text-white shadow-md shadow-primary/15 transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-70"
         >
-          {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
-          {isSubmitting ? "Creating account..." : "Create account"}
+          {(isSubmitting || isLoading) && <Loader2 className="h-4 w-4 animate-spin" />}
+          {isSubmitting || isLoading ? "Creating account..." : "Create account"}
         </button>
       </form>
     </AuthShell>

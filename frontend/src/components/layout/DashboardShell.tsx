@@ -1,31 +1,56 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import DashboardSidebar from "./DashboardSidebar";
 import DashboardTopbar from "./DashboardTopbar";
 import { getDashboardPageTitle } from "../../constants/navigation";
-import type { AuthUser } from "../../lib/authApi";
+import { useAuthStore } from "../../store/authStore";
 
 interface DashboardShellProps {
   children: React.ReactNode;
 }
 
-const DEMO_USER: AuthUser = {
-  id: "demo-user",
-  fullName: "SheCare User",
-  email: "demo@shecare.local",
-  role: "user",
-};
-
 export default function DashboardShell({ children }: DashboardShellProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const user = useAuthStore((state) => state.user);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const isLoading = useAuthStore((state) => state.isLoading);
+  const hasHydrated = useAuthStore((state) => state.hasHydrated);
+  const fetchMe = useAuthStore((state) => state.fetchMe);
+  const logout = useAuthStore((state) => state.logout);
 
   const handleLogout = async () => {
-    router.push("/");
+    await logout();
+    router.push("/login");
   };
+
+  useEffect(() => {
+    if (!hasHydrated) {
+      return;
+    }
+
+    if (!isAuthenticated) {
+      router.replace("/login");
+      return;
+    }
+
+    if (!user) {
+      fetchMe().catch(() => {
+        router.replace("/login");
+      });
+    }
+  }, [fetchMe, hasHydrated, isAuthenticated, router, user]);
+
+  if (!hasHydrated || isLoading || !isAuthenticated || !user) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-muted/20 text-sm font-bold text-muted-foreground">
+        Loading your dashboard...
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen bg-muted/20 text-foreground">
@@ -37,7 +62,7 @@ export default function DashboardShell({ children }: DashboardShellProps) {
       <div className="flex min-w-0 flex-1 flex-col">
         <DashboardTopbar
           title={getDashboardPageTitle(pathname)}
-          user={DEMO_USER}
+          user={user}
           onMenuToggle={() => setSidebarOpen(true)}
           onLogout={handleLogout}
         />

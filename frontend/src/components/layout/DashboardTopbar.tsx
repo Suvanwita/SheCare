@@ -3,7 +3,7 @@
 import React, { useState, useSyncExternalStore } from "react";
 import { useTheme } from "next-themes";
 import { ChevronDown, LogOut, Menu, Moon, Search, Sun, UserCircle } from "lucide-react";
-import type { AuthUser } from "../../lib/authApi";
+import type { AuthUser } from "../../services/auth.service";
 import { cn } from "../../lib/utils";
 
 const subscribeToMount = () => () => {};

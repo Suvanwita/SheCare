@@ -7,7 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { AlertCircle, Loader2, Lock, Mail } from "lucide-react";
 import AuthShell from "../../components/auth/AuthShell";
-import { login } from "../../lib/authApi";
+import { useAuthStore } from "../../store/authStore";
 import { cn } from "../../lib/utils";
 
 const loginSchema = z.object({
@@ -20,6 +20,9 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 export default function LoginPage() {
   const router = useRouter();
   const [formError, setFormError] = useState("");
+  const login = useAuthStore((state) => state.login);
+  const authError = useAuthStore((state) => state.error);
+  const isLoading = useAuthStore((state) => state.isLoading);
   const {
     register,
     handleSubmit,
@@ -55,10 +58,10 @@ export default function LoginPage() {
       footerLinkText="Create an account"
     >
       <form onSubmit={handleSubmit(onSubmit, handleInvalidSubmit)} className="space-y-4">
-        {formError && (
+        {(formError || authError) && (
           <div className="flex items-start gap-2 rounded-2xl border border-destructive/25 bg-destructive/10 p-3 text-xs font-semibold text-destructive">
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-            <span>{formError}</span>
+            <span>{formError || authError}</span>
           </div>
         )}
 
@@ -108,11 +111,11 @@ export default function LoginPage() {
 
         <button
           type="submit"
-          disabled={isSubmitting}
+          disabled={isSubmitting || isLoading}
           className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-secondary px-4 py-3 text-sm font-bold text-white shadow-md shadow-primary/15 transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-70"
         >
-          {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
-          {isSubmitting ? "Signing in..." : "Sign in"}
+          {(isSubmitting || isLoading) && <Loader2 className="h-4 w-4 animate-spin" />}
+          {isSubmitting || isLoading ? "Signing in..." : "Sign in"}
         </button>
       </form>
     </AuthShell>
