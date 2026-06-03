@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   CalendarDays,
@@ -14,21 +14,28 @@ import {
   UploadCloud,
   X,
 } from "lucide-react";
-import {
-  MOCK_REPORTS,
-  REPORT_CATEGORIES,
-  REPORT_FILE_TYPES,
-  type MedicalReport,
-  type ReportFileType,
-  type ReportStatus,
-} from "../../../data/mockReports";
 import { cn, formatDate } from "../../../lib/utils";
+import { useReportStore } from "../../../store/reportStore";
+import type { Report } from "../../../services/report.service";
 
-const statusTone: Record<ReportStatus, string> = {
-  reviewed: "border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
-  pending: "border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400",
-  shared: "border-sky-500/20 bg-sky-500/10 text-sky-600 dark:text-sky-400",
-};
+type ReportFileType = "PDF" | "JPG" | "PNG";
+
+const MAX_FILE_SIZE = 5 * 1024 * 1024;
+
+const REPORT_CATEGORIES = [
+  "Lab Report",
+  "Ultrasound",
+  "Prescription",
+  "Hormone Panel",
+  "Consultation Note",
+  "Other",
+];
+
+const REPORT_FILE_TYPES: Array<{ label: ReportFileType; value: string }> = [
+  { label: "PDF", value: "application/pdf" },
+  { label: "JPG", value: "image/jpeg" },
+  { label: "PNG", value: "image/png" },
+];
 
 function getFileType(file: File): ReportFileType | null {
   if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
@@ -51,29 +58,58 @@ function formatFileSize(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function todayIsoDate() {
-  const date = new Date();
+function getReportFileType(mimeType?: string): ReportFileType {
+  if (mimeType === "application/pdf") {
+    return "PDF";
+  }
+
+  if (mimeType === "image/png") {
+    return "PNG";
+  }
+
+  return "JPG";
+}
+
+function getReportDate(report: Report) {
+  return report.createdAt ?? report.updatedAt ?? new Date().toISOString();
+}
+
+function getIsoDate(value: string) {
+  const date = new Date(value);
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
 export default function ReportsDashboardPage() {
-  const [reports, setReports] = useState<MedicalReport[]>(MOCK_REPORTS);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState("");
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState(REPORT_CATEGORIES[0]);
   const [doctorName, setDoctorName] = useState("");
   const [notes, setNotes] = useState("");
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [previewReport, setPreviewReport] = useState<MedicalReport | null>(null);
+  const [previewReport, setPreviewReport] = useState<Report | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState("");
   const [doctorFilter, setDoctorFilter] = useState("all");
   const [fileTypeFilter, setFileTypeFilter] = useState("all");
+  const reports = useReportStore((state) => state.reports);
+  const isLoading = useReportStore((state) => state.isLoading);
+  const isSubmitting = useReportStore((state) => state.isSubmitting);
+  const uploadProgress = useReportStore((state) => state.uploadProgress);
+  const error = useReportStore((state) => state.error);
+  const fetchReports = useReportStore((state) => state.fetchReports);
+  const uploadReportToBackend = useReportStore((state) => state.uploadReport);
+  const deleteReportFromBackend = useReportStore((state) => state.deleteReport);
 
   const doctorOptions = useMemo(
-    () => Array.from(new Set(reports.map((report) => report.doctorName).filter(Boolean))),
+    () =>
+      Array.from(
+        new Set(
+          reports
+            .map((report) => report.doctorName)
+            .filter((doctor): doctor is string => Boolean(doctor))
+        )
+      ),
     [reports]
   );
 
@@ -84,23 +120,25 @@ export default function ReportsDashboardPage() {
         const matchesSearch =
           !query ||
           report.title.toLowerCase().includes(query) ||
-          report.category.toLowerCase().includes(query) ||
-          report.doctorName.toLowerCase().includes(query);
-        const matchesCategory = categoryFilter === "all" || report.category === categoryFilter;
-        const matchesDate = !dateFilter || report.uploadedAt === dateFilter;
-        const matchesDoctor = doctorFilter === "all" || report.doctorName === doctorFilter;
-        const matchesFileType = fileTypeFilter === "all" || report.fileType === fileTypeFilter;
+          (report.category ?? "").toLowerCase().includes(query) ||
+          (report.doctorName ?? "").toLowerCase().includes(query) ||
+          (report.originalName ?? "").toLowerCase().includes(query);
+        const matchesDate = !dateFilter || getIsoDate(getReportDate(report)) === dateFilter;
 
-        return (
-          matchesSearch &&
-          matchesCategory &&
-          matchesDate &&
-          matchesDoctor &&
-          matchesFileType
-        );
+        return matchesSearch && matchesDate;
       }),
-    [categoryFilter, dateFilter, doctorFilter, fileTypeFilter, reports, searchQuery]
+    [dateFilter, reports, searchQuery]
   );
+
+  useEffect(() => {
+    fetchReports({
+      page: 1,
+      limit: 20,
+      category: categoryFilter === "all" ? undefined : categoryFilter,
+      doctorName: doctorFilter === "all" ? undefined : doctorFilter,
+      mimeType: fileTypeFilter === "all" ? undefined : fileTypeFilter,
+    });
+  }, [categoryFilter, doctorFilter, fetchReports, fileTypeFilter]);
 
   const handleFile = (file: File | undefined) => {
     if (!file) {
@@ -111,22 +149,25 @@ export default function ReportsDashboardPage() {
     if (!fileType) {
       setFileError("Only PDF, JPG, and PNG files are supported.");
       setSelectedFile(null);
-      setUploadProgress(0);
+      return;
+    }
+
+    if (file.size > MAX_FILE_SIZE) {
+      setFileError("File size must be 5MB or less.");
+      setSelectedFile(null);
       return;
     }
 
     setFileError("");
     setSelectedFile(file);
-    setUploadProgress(38);
   };
 
   const clearUpload = () => {
     setSelectedFile(null);
     setFileError("");
-    setUploadProgress(0);
   };
 
-  const uploadReport = () => {
+  const uploadReport = async () => {
     if (!selectedFile) {
       setFileError("Choose a PDF, JPG, or PNG report before uploading.");
       return;
@@ -138,24 +179,20 @@ export default function ReportsDashboardPage() {
       return;
     }
 
-    const reportTitle = title.trim() || selectedFile.name.replace(/\.[^/.]+$/, "");
-    const doctor = doctorName.trim() || "Unassigned";
+    if (selectedFile.size > MAX_FILE_SIZE) {
+      setFileError("File size must be 5MB or less.");
+      return;
+    }
 
-    setUploadProgress(100);
-    setReports((currentReports) => [
-      {
-        id: `report-local-${currentReports.length + 1}-${selectedFile.name}`,
-        title: reportTitle,
-        category,
-        uploadedAt: todayIsoDate(),
-        fileType,
-        fileSize: formatFileSize(selectedFile.size),
-        doctorName: doctor,
-        status: "pending",
-        notes: notes.trim() || undefined,
-      },
-      ...currentReports,
-    ]);
+    const reportTitle = title.trim() || selectedFile.name.replace(/\.[^/.]+$/, "");
+
+    await uploadReportToBackend({
+      file: selectedFile,
+      title: reportTitle,
+      category,
+      doctorName: doctorName.trim() || undefined,
+      notes: notes.trim() || undefined,
+    });
 
     setTitle("");
     setCategory(REPORT_CATEGORIES[0]);
@@ -163,12 +200,11 @@ export default function ReportsDashboardPage() {
     setNotes("");
     setSelectedFile(null);
     setFileError("");
-    setUploadProgress(0);
   };
 
-  const deleteReport = (id: string) => {
-    setReports((currentReports) => currentReports.filter((report) => report.id !== id));
-    if (previewReport?.id === id) {
+  const deleteReport = async (id: string) => {
+    await deleteReportFromBackend(id);
+    if (previewReport?._id === id) {
       setPreviewReport(null);
     }
   };
@@ -192,7 +228,7 @@ export default function ReportsDashboardPage() {
           <div className="mb-5">
             <h3 className="text-lg font-black text-foreground">Upload report</h3>
             <p className="mt-1 text-xs text-muted-foreground">
-              Files stay temporary in browser state until backend storage is connected.
+              Upload PDF, JPG, or PNG reports to your SheCare record.
             </p>
           </div>
 
@@ -260,7 +296,7 @@ export default function ReportsDashboardPage() {
                   />
                 </div>
                 <p className="mt-1 text-[11px] font-semibold text-muted-foreground">
-                  Upload progress placeholder: {uploadProgress}%
+                  Upload progress: {uploadProgress}%
                 </p>
               </div>
             </div>
@@ -325,10 +361,11 @@ export default function ReportsDashboardPage() {
           <button
             type="button"
             onClick={uploadReport}
+            disabled={isSubmitting}
             className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-secondary px-4 py-3 text-sm font-bold text-white shadow-md shadow-primary/15 transition hover:opacity-95"
           >
             <UploadCloud className="h-4 w-4" />
-            Add temporary report
+            Upload report
           </button>
         </div>
 
@@ -338,7 +375,7 @@ export default function ReportsDashboardPage() {
             <div>
               <h3 className="text-lg font-black text-foreground">Search and filters</h3>
               <p className="text-xs text-muted-foreground">
-                Filter locally by category, upload date, doctor, or file type.
+                Filter by category, upload date, doctor, or file type.
               </p>
             </div>
           </div>
@@ -397,8 +434,8 @@ export default function ReportsDashboardPage() {
             >
               <option value="all">All file types</option>
               {REPORT_FILE_TYPES.map((item) => (
-                <option key={item} value={item}>
-                  {item}
+                <option key={item.value} value={item.value}>
+                  {item.label}
                 </option>
               ))}
             </select>
@@ -413,6 +450,19 @@ export default function ReportsDashboardPage() {
         </div>
       </section>
 
+      {(error || isLoading) && (
+        <section
+          className={cn(
+            "rounded-3xl border px-5 py-4 text-sm font-bold",
+            error
+              ? "border-destructive/20 bg-destructive/10 text-destructive"
+              : "border-border/60 bg-card text-muted-foreground"
+          )}
+        >
+          {error || "Loading reports..."}
+        </section>
+      )}
+
       <section className="grid gap-4 xl:grid-cols-2">
         {filteredReports.length === 0 ? (
           <div className="rounded-3xl border border-dashed border-border bg-card p-6 text-center xl:col-span-2">
@@ -422,13 +472,13 @@ export default function ReportsDashboardPage() {
         ) : (
           filteredReports.map((report) => (
             <article
-              key={report.id}
+              key={report._id}
               className="rounded-3xl border border-border/60 bg-card p-5 shadow-sm transition-shadow hover:shadow-md"
             >
               <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="flex gap-3">
                   <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                    {report.fileType === "PDF" ? (
+                    {getReportFileType(report.mimeType) === "PDF" ? (
                       <FileText className="h-5 w-5" />
                     ) : (
                       <FileImage className="h-5 w-5" />
@@ -437,27 +487,27 @@ export default function ReportsDashboardPage() {
                   <div>
                     <h3 className="text-base font-black text-foreground">{report.title}</h3>
                     <p className="mt-1 text-sm text-muted-foreground">
-                      {report.category} · {report.doctorName}
+                      {report.category || "Uncategorized"} · {report.doctorName || "Unassigned"}
                     </p>
                   </div>
                 </div>
-                <span className={cn("w-fit rounded-full border px-2.5 py-1 text-xs font-black capitalize", statusTone[report.status])}>
-                  {report.status}
+                <span className="w-fit rounded-full border border-sky-500/20 bg-sky-500/10 px-2.5 py-1 text-xs font-black capitalize text-sky-600 dark:text-sky-400">
+                  uploaded
                 </span>
               </div>
 
               <div className="mt-4 grid gap-3 text-xs text-muted-foreground sm:grid-cols-3">
                 <span className="rounded-2xl bg-muted/30 p-3">
                   <CalendarDays className="mb-1 h-4 w-4 text-primary" />
-                  {formatDate(report.uploadedAt)}
+                  {formatDate(getReportDate(report))}
                 </span>
                 <span className="rounded-2xl bg-muted/30 p-3">
                   <FileText className="mb-1 h-4 w-4 text-primary" />
-                  {report.fileType}
+                  {getReportFileType(report.mimeType)}
                 </span>
                 <span className="rounded-2xl bg-muted/30 p-3">
                   <Download className="mb-1 h-4 w-4 text-primary" />
-                  {report.fileSize}
+                  {formatFileSize(report.size ?? 0)}
                 </span>
               </div>
 
@@ -472,6 +522,7 @@ export default function ReportsDashboardPage() {
                 </button>
                 <button
                   type="button"
+                  disabled
                   className="inline-flex items-center gap-2 rounded-2xl border border-border bg-background px-3 py-2 text-xs font-bold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                 >
                   <Download className="h-4 w-4" />
@@ -479,7 +530,8 @@ export default function ReportsDashboardPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => deleteReport(report.id)}
+                  onClick={() => deleteReport(report._id)}
+                  disabled={isSubmitting}
                   className="inline-flex items-center gap-2 rounded-2xl border border-border bg-background px-3 py-2 text-xs font-bold text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
                 >
                   <Trash2 className="h-4 w-4" />
@@ -515,7 +567,7 @@ export default function ReportsDashboardPage() {
                     {previewReport.title}
                   </h3>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Uploaded {formatDate(previewReport.uploadedAt)} by {previewReport.doctorName}
+                    Uploaded {formatDate(getReportDate(previewReport))} by {previewReport.doctorName || "Unassigned"}
                   </p>
                 </div>
                 <button
@@ -532,20 +584,20 @@ export default function ReportsDashboardPage() {
                 <div className="flex min-h-80 items-center justify-center rounded-3xl border border-dashed border-border bg-muted/20">
                   <div className="text-center">
                     <FileText className="mx-auto h-12 w-12 text-primary" />
-                    <p className="mt-3 text-sm font-black text-foreground">Sample preview placeholder</p>
+                    <p className="mt-3 text-sm font-black text-foreground">Preview unavailable</p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      {previewReport.fileType} · {previewReport.fileSize}
+                      {getReportFileType(previewReport.mimeType)} · {formatFileSize(previewReport.size ?? 0)}
                     </p>
                   </div>
                 </div>
 
                 <div className="space-y-3">
                   {[
-                    ["Category", previewReport.category],
-                    ["Status", previewReport.status],
-                    ["File type", previewReport.fileType],
-                    ["File size", previewReport.fileSize],
-                    ["Uploaded date", formatDate(previewReport.uploadedAt)],
+                    ["Category", previewReport.category || "Uncategorized"],
+                    ["Original name", previewReport.originalName || "Unknown"],
+                    ["File type", getReportFileType(previewReport.mimeType)],
+                    ["File size", formatFileSize(previewReport.size ?? 0)],
+                    ["Uploaded date", formatDate(getReportDate(previewReport))],
                   ].map(([label, value]) => (
                     <div key={label} className="rounded-2xl border border-border/60 bg-muted/20 p-3">
                       <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
