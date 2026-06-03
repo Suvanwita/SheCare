@@ -1,41 +1,33 @@
-# SheCare ML Services
+# SheCare ML
 
-This directory contains independent FastAPI ML services.
-
-```text
-ml-model/
-├── pcos-service/
-└── cycle-service/
-```
+FastAPI ML services used by the SheCare backend.
 
 ## PCOS Service
 
-The PCOS service contains the trained Random Forest PCOS risk model and related preprocessing pipeline.
+The backend uses the PCOS service endpoint:
+
+- `POST http://localhost:8000/predict-pcos`
+
+Run locally:
 
 ```bash
 cd ml-model/pcos-service
+pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
 ```
 
-Endpoints:
-
-- `GET /health`
-- `POST /predict-pcos`
-
-## Cycle Service
-
-The cycle service is a separate FastAPI app for cycle irregularity prediction. It currently uses placeholder rule-based logic until a dedicated model is trained.
+Health check:
 
 ```bash
-cd ml-model/cycle-service
-uvicorn app.main:app --reload --port 8001
+curl http://localhost:8000/health
 ```
 
-Endpoints:
+## Env
 
-- `GET /health`
-- `POST /predict-cycle-irregularity`
+Create `ml-model/.env` if you want a root template:
 
-## Independence
+```env
+PORT=8000
+```
 
-Each service has its own `app/`, `data/`, `model/`, `tests/`, `requirements.txt`, `Dockerfile`, and `README.md`. PCOS model logic stays inside `pcos-service`; cycle irregularity logic stays inside `cycle-service`.
+The PCOS service also supports service-local env values in `ml-model/pcos-service/.env`.
