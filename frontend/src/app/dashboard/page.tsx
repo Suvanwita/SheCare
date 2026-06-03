@@ -1,15 +1,27 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 import { motion } from "framer-motion";
 import CycleTracker from "../../components/dashboard/CycleTracker";
 import VitalsCharts from "../../components/dashboard/VitalsCharts";
 import SymptomLogger from "../../components/dashboard/SymptomLogger";
 import WellnessTips from "../../components/dashboard/WellnessTips";
 import AIConsultationMock from "../../components/dashboard/AIConsultationMock";
-import { Moon, Droplet, Footprints, Heart } from "lucide-react";
+import { Moon, Droplet, Heart, Pill } from "lucide-react";
+import { useAnalyticsStore } from "../../store/analyticsStore";
 
 export default function DashboardPage() {
+  const summary = useAnalyticsStore((state) => state.summary);
+  const fetchSummary = useAnalyticsStore((state) => state.fetchSummary);
+
+  useEffect(() => {
+    fetchSummary();
+  }, [fetchSummary]);
+
+  const sleepHours = summary?.healthSummary.averageSleep;
+  const waterIntake = summary?.healthSummary.averageWaterIntake;
+  const adherence = summary?.reminderSummary.adherencePercentage;
+
   const containerVariants = {
     hidden: { opacity: 0 },
     show: {
@@ -60,8 +72,12 @@ export default function DashboardPage() {
         <div className="glass-card rounded-2xl p-5 border border-border/50 flex items-center justify-between shadow-sm hover:shadow-md transition-shadow duration-200">
           <div className="space-y-1">
             <span className="text-[10px] text-muted-foreground font-bold tracking-wider">Sleep Quality</span>
-            <h4 className="text-2xl font-black font-sans text-foreground">82%</h4>
-            <p className="text-[11px] text-indigo-500 font-medium">7.5h slept • Good</p>
+            <h4 className="text-2xl font-black font-sans text-foreground">
+              {sleepHours ? `${Math.round((sleepHours / 8) * 100)}%` : "82%"}
+            </h4>
+            <p className="text-[11px] text-indigo-500 font-medium">
+              {sleepHours ? `${sleepHours}h average` : "7.5h slept"} • Good
+            </p>
           </div>
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-500">
             <Moon className="h-6 w-6" />
@@ -72,8 +88,12 @@ export default function DashboardPage() {
         <div className="glass-card rounded-2xl p-5 border border-border/50 flex items-center justify-between shadow-sm hover:shadow-md transition-shadow duration-200">
           <div className="space-y-1">
             <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">Hydration</span>
-            <h4 className="text-2xl font-black font-sans text-foreground">1.8L</h4>
-            <p className="text-[11px] text-sky-500 font-medium">Goal: 2.5L • 72% done</p>
+            <h4 className="text-2xl font-black font-sans text-foreground">
+              {waterIntake ? `${(waterIntake / 1000).toFixed(1)}L` : "1.8L"}
+            </h4>
+            <p className="text-[11px] text-sky-500 font-medium">
+              Goal: 2.5L • {waterIntake ? `${Math.min(100, Math.round((waterIntake / 2500) * 100))}% done` : "72% done"}
+            </p>
           </div>
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-sky-500/10 text-sky-500">
             <Droplet className="h-6 w-6" />
@@ -83,12 +103,16 @@ export default function DashboardPage() {
         {/* Stat 3: Daily Activity */}
         <div className="glass-card rounded-2xl p-5 border border-border/50 flex items-center justify-between shadow-sm hover:shadow-md transition-shadow duration-200">
           <div className="space-y-1">
-            <span className="text-[10px] text-muted-foreground font-bold tracking-wider">Activity Steps</span>
-            <h4 className="text-2xl font-black font-sans text-foreground">8,430</h4>
-            <p className="text-[11px] text-emerald-500 font-medium">Goal: 10k • 84% done</p>
+            <span className="text-[10px] text-muted-foreground font-bold tracking-wider">Reminder Adherence</span>
+            <h4 className="text-2xl font-black font-sans text-foreground">
+              {adherence !== undefined ? `${adherence}%` : "84%"}
+            </h4>
+            <p className="text-[11px] text-emerald-500 font-medium">
+              {summary ? `${summary.reminderSummary.completedReminders} completed reminders` : "Goal: 10k • 84% done"}
+            </p>
           </div>
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-500">
-            <Footprints className="h-6 w-6" />
+            <Pill className="h-6 w-6" />
           </div>
         </div>
 

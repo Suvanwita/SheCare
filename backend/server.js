@@ -14,6 +14,7 @@ const doctorRoutes = require('./routes/doctorRoutes');
 const appointmentRoutes = require('./routes/appointmentRoutes');
 const reportRoutes = require('./routes/reportRoutes');
 const pcosRoutes = require('./routes/pcosRoutes');
+const analyticsRoutes = require('./routes/analyticsRoutes');
 const { notFound, errorHandler } = require('./middleware/errorMiddleware');
 
 dotenv.config();
@@ -61,6 +62,7 @@ app.use('/api/doctors', doctorRoutes);
 app.use('/api/appointments', appointmentRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/pcos', pcosRoutes);
+app.use('/api/analytics', analyticsRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
