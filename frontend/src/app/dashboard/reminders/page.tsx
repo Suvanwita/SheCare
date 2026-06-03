@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -19,16 +19,20 @@ import {
   X,
 } from "lucide-react";
 import {
-  MOCK_REMINDERS,
   REMINDER_PRIORITY_OPTIONS,
   REMINDER_REPEAT_OPTIONS,
   REMINDER_TYPE_OPTIONS,
-  type ReminderEntry,
-  type ReminderPriority,
-  type ReminderStatus,
-  type ReminderType,
 } from "../../../data/mockReminders";
 import { cn, formatDate } from "../../../lib/utils";
+import { useNotificationStore } from "../../../store/notificationStore";
+import { useReminderStore } from "../../../store/reminderStore";
+import type {
+  Reminder,
+  ReminderPayload,
+  ReminderPriority,
+  ReminderStatus,
+  ReminderType,
+} from "../../../services/reminder.service";
 
 const reminderSchema = z.object({
   title: z.string().trim().min(1, "Title is required"),
@@ -58,6 +62,7 @@ const statusTone: Record<ReminderStatus, string> = {
   upcoming: "border-sky-500/20 bg-sky-500/10 text-sky-600 dark:text-sky-400",
   completed: "border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
   missed: "border-destructive/20 bg-destructive/10 text-destructive",
+  cancelled: "border-muted-foreground/20 bg-muted text-muted-foreground",
 };
 
 const typeIcon: Record<ReminderType, React.ComponentType<{ className?: string }>> = {
@@ -142,18 +147,59 @@ function NotificationStat({
   );
 }
 
-function getScheduledTime(reminder: ReminderEntry) {
-  return `${formatDate(reminder.date)} at ${reminder.time}`;
+function toScheduledAt(data: ReminderFormValues) {
+  return new Date(`${data.date}T${data.time}`).toISOString();
+}
+
+function toReminderPayload(data: ReminderFormValues): ReminderPayload {
+  return {
+    title: data.title,
+    type: data.type,
+    message: data.message,
+    scheduledAt: toScheduledAt(data),
+    repeat: data.repeat,
+    priority: data.priority,
+  };
+}
+
+function getDateInputValue(value: string) {
+  const date = new Date(value);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function getTimeInputValue(value: string) {
+  const date = new Date(value);
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  return `${hours}:${minutes}`;
+}
+
+function getScheduledTime(reminder: Reminder) {
+  return `${formatDate(reminder.scheduledAt)} at ${getTimeInputValue(reminder.scheduledAt)}`;
 }
 
 export default function RemindersDashboardPage() {
-  const [reminders, setReminders] = useState<ReminderEntry[]>(MOCK_REMINDERS);
-  const [editingReminder, setEditingReminder] = useState<ReminderEntry | null>(null);
+  const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
+  const reminders = useReminderStore((state) => state.reminders);
+  const isLoading = useReminderStore((state) => state.isLoading);
+  const isStoreSubmitting = useReminderStore((state) => state.isSubmitting);
+  const error = useReminderStore((state) => state.error);
+  const fetchReminders = useReminderStore((state) => state.fetchReminders);
+  const createReminder = useReminderStore((state) => state.createReminder);
+  const updateReminder = useReminderStore((state) => state.updateReminder);
+  const removeReminder = useReminderStore((state) => state.deleteReminder);
+  const completeReminder = useReminderStore((state) => state.completeReminder);
+  const unreadCount = useNotificationStore((state) => state.unreadCount);
+  const notificationError = useNotificationStore((state) => state.error);
+  const fetchNotifications = useNotificationStore((state) => state.fetchNotifications);
   const {
     register,
     handleSubmit,
     reset,
-    formState: { errors, isSubmitting },
+    formState: { errors },
   } = useForm<ReminderFormValues>({
     resolver: zodResolver(reminderSchema),
     defaultValues: {
@@ -183,7 +229,7 @@ export default function RemindersDashboardPage() {
   const sortedReminders = useMemo(
     () =>
       [...reminders].sort((a, b) =>
-        `${a.date}T${a.time}`.localeCompare(`${b.date}T${b.time}`)
+        new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime()
       ),
     [reminders]
   );
@@ -192,15 +238,14 @@ export default function RemindersDashboardPage() {
   const completedCount = reminders.filter((reminder) => reminder.status === "completed").length;
   const missedCount = reminders.filter((reminder) => reminder.status === "missed").length;
 
-  const onSubmit = (data: ReminderFormValues) => {
-    setReminders((currentReminders) => [
-      {
-        id: `reminder-local-${currentReminders.length + 1}-${data.date}-${data.time}`,
-        ...data,
-        status: "upcoming",
-      },
-      ...currentReminders,
-    ]);
+  useEffect(() => {
+    fetchReminders({ page: 1, limit: 20 });
+    fetchNotifications({ page: 1, limit: 20 });
+  }, [fetchNotifications, fetchReminders]);
+
+  const onSubmit = async (data: ReminderFormValues) => {
+    await createReminder(toReminderPayload(data));
+    await fetchNotifications({ page: 1, limit: 20 });
 
     reset({
       title: "",
@@ -213,46 +258,35 @@ export default function RemindersDashboardPage() {
     });
   };
 
-  const openEdit = (reminder: ReminderEntry) => {
+  const openEdit = (reminder: Reminder) => {
     setEditingReminder(reminder);
     editForm.reset({
       title: reminder.title,
       type: reminder.type,
-      message: reminder.message,
-      date: reminder.date,
-      time: reminder.time,
+      message: reminder.message ?? "",
+      date: getDateInputValue(reminder.scheduledAt),
+      time: getTimeInputValue(reminder.scheduledAt),
       repeat: reminder.repeat,
       priority: reminder.priority,
     });
   };
 
-  const saveEdit = (data: ReminderFormValues) => {
+  const saveEdit = async (data: ReminderFormValues) => {
     if (!editingReminder) {
       return;
     }
 
-    setReminders((currentReminders) =>
-      currentReminders.map((reminder) =>
-        reminder.id === editingReminder.id
-          ? { ...reminder, ...data }
-          : reminder
-      )
-    );
+    await updateReminder(editingReminder._id, toReminderPayload(data));
     setEditingReminder(null);
   };
 
-  const deleteReminder = (id: string) => {
-    setReminders((currentReminders) =>
-      currentReminders.filter((reminder) => reminder.id !== id)
-    );
+  const deleteReminder = async (id: string) => {
+    await removeReminder(id);
   };
 
-  const markComplete = (id: string) => {
-    setReminders((currentReminders) =>
-      currentReminders.map((reminder) =>
-        reminder.id === id ? { ...reminder, status: "completed" } : reminder
-      )
-    );
+  const markComplete = async (id: string) => {
+    await completeReminder(id);
+    await fetchNotifications({ page: 1, limit: 20 });
   };
 
   return (
@@ -367,7 +401,7 @@ export default function RemindersDashboardPage() {
 
           <button
             type="submit"
-            disabled={isSubmitting}
+            disabled={isStoreSubmitting}
             className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-secondary px-4 py-3 text-sm font-bold text-white shadow-md shadow-primary/15 transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-70"
           >
             <Plus className="h-4 w-4" />
@@ -382,14 +416,20 @@ export default function RemindersDashboardPage() {
               <h3 className="text-lg font-black text-foreground">Notification preview</h3>
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
-              Mock notification center for local reminders.
+              Live notification center for your reminders.
             </p>
 
             <div className="mt-5 grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
-              <NotificationStat label="Unread notifications" value={upcomingCount + missedCount} icon={MessageSquareText} />
+              <NotificationStat label="Unread notifications" value={unreadCount} icon={MessageSquareText} />
               <NotificationStat label="Completed reminders" value={completedCount} icon={CheckCircle2} />
               <NotificationStat label="Missed reminders" value={missedCount} icon={AlertCircle} />
             </div>
+
+            {notificationError && (
+              <p className="mt-4 rounded-2xl border border-destructive/20 bg-destructive/10 px-4 py-3 text-xs font-bold text-destructive">
+                {notificationError}
+              </p>
+            )}
           </div>
 
           <div className="rounded-3xl border border-border/60 bg-card p-5 shadow-sm">
@@ -401,17 +441,33 @@ export default function RemindersDashboardPage() {
                 .filter((reminder) => reminder.status === "upcoming")
                 .slice(0, 3)
                 .map((reminder) => (
-                  <div key={reminder.id} className="rounded-2xl bg-muted/30 p-3">
+                  <div key={reminder._id} className="rounded-2xl bg-muted/30 p-3">
                     <p className="text-sm font-bold text-foreground">{reminder.title}</p>
                     <p className="mt-1 text-xs text-muted-foreground">
                       {getScheduledTime(reminder)}
                     </p>
                   </div>
                 ))}
+              {!isLoading && upcomingCount === 0 && (
+                <p className="rounded-2xl bg-muted/30 p-3 text-xs font-semibold text-muted-foreground">
+                  No upcoming reminders.
+                </p>
+              )}
             </div>
           </div>
         </aside>
       </section>
+
+      {(error || isLoading) && (
+        <section className={cn(
+          "rounded-3xl border px-5 py-4 text-sm font-bold",
+          error
+            ? "border-destructive/20 bg-destructive/10 text-destructive"
+            : "border-border/60 bg-card text-muted-foreground"
+        )}>
+          {error || "Loading reminders..."}
+        </section>
+      )}
 
       <section className="grid gap-4 lg:grid-cols-2">
         {sortedReminders.map((reminder) => {
@@ -419,7 +475,7 @@ export default function RemindersDashboardPage() {
 
           return (
             <article
-              key={reminder.id}
+              key={reminder._id}
               className="rounded-3xl border border-border/60 bg-card p-5 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
             >
               <div className="flex items-start justify-between gap-4">
@@ -463,6 +519,7 @@ export default function RemindersDashboardPage() {
                 <button
                   type="button"
                   onClick={() => openEdit(reminder)}
+                  disabled={isStoreSubmitting}
                   className="inline-flex items-center gap-2 rounded-2xl border border-border bg-background px-3 py-2 text-xs font-bold text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                 >
                   <Edit3 className="h-4 w-4" />
@@ -470,7 +527,8 @@ export default function RemindersDashboardPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => deleteReminder(reminder.id)}
+                  onClick={() => deleteReminder(reminder._id)}
+                  disabled={isStoreSubmitting}
                   className="inline-flex items-center gap-2 rounded-2xl border border-border bg-background px-3 py-2 text-xs font-bold text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
                 >
                   <Trash2 className="h-4 w-4" />
@@ -478,8 +536,8 @@ export default function RemindersDashboardPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => markComplete(reminder.id)}
-                  disabled={reminder.status === "completed"}
+                  onClick={() => markComplete(reminder._id)}
+                  disabled={reminder.status === "completed" || isStoreSubmitting}
                   className="inline-flex items-center gap-2 rounded-2xl bg-primary px-3 py-2 text-xs font-bold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <CheckCircle2 className="h-4 w-4" />
@@ -489,6 +547,11 @@ export default function RemindersDashboardPage() {
             </article>
           );
         })}
+        {!isLoading && sortedReminders.length === 0 && (
+          <div className="rounded-3xl border border-border/60 bg-card p-6 text-sm font-bold text-muted-foreground shadow-sm lg:col-span-2">
+            No reminders yet.
+          </div>
+        )}
       </section>
 
       {editingReminder && (
@@ -501,7 +564,7 @@ export default function RemindersDashboardPage() {
               <div>
                 <h3 className="text-xl font-black text-foreground">Edit reminder</h3>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Update this local reminder. Backend scheduling is not connected yet.
+                  Update this reminder and keep notifications in sync.
                 </p>
               </div>
               <button
@@ -606,6 +669,7 @@ export default function RemindersDashboardPage() {
               </button>
               <button
                 type="submit"
+                disabled={isStoreSubmitting || editForm.formState.isSubmitting}
                 className="rounded-2xl bg-gradient-to-r from-primary to-secondary px-4 py-3 text-sm font-bold text-white shadow-md shadow-primary/15 transition hover:opacity-95"
               >
                 Save changes

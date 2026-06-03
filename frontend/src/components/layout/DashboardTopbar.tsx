@@ -1,10 +1,21 @@
 "use client";
 
-import React, { useState, useSyncExternalStore } from "react";
+import React, { useEffect, useState, useSyncExternalStore } from "react";
 import { useTheme } from "next-themes";
-import { ChevronDown, LogOut, Menu, Moon, Search, Sun, UserCircle } from "lucide-react";
+import {
+  Bell,
+  CheckCircle2,
+  ChevronDown,
+  LogOut,
+  Menu,
+  Moon,
+  Search,
+  Sun,
+  UserCircle,
+} from "lucide-react";
 import type { AuthUser } from "../../services/auth.service";
 import { cn } from "../../lib/utils";
+import { useNotificationStore } from "../../store/notificationStore";
 
 const subscribeToMount = () => () => {};
 const getClientSnapshot = () => true;
@@ -20,11 +31,22 @@ interface DashboardTopbarProps {
 export default function DashboardTopbar({ title, user, onMenuToggle, onLogout }: DashboardTopbarProps) {
   const { theme, setTheme } = useTheme();
   const [profileOpen, setProfileOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const notifications = useNotificationStore((state) => state.notifications);
+  const unreadCount = useNotificationStore((state) => state.unreadCount);
+  const notificationsLoading = useNotificationStore((state) => state.isLoading);
+  const fetchNotifications = useNotificationStore((state) => state.fetchNotifications);
+  const markRead = useNotificationStore((state) => state.markRead);
+  const markAllRead = useNotificationStore((state) => state.markAllRead);
   const mounted = useSyncExternalStore(
     subscribeToMount,
     getClientSnapshot,
     getServerSnapshot
   );
+
+  useEffect(() => {
+    fetchNotifications({ page: 1, limit: 10 });
+  }, [fetchNotifications]);
 
   return (
     <header className="sticky top-0 z-30 border-b border-border/60 bg-background/80 backdrop-blur-xl">
@@ -93,6 +115,97 @@ export default function DashboardTopbar({ title, user, onMenuToggle, onLogout }:
                   <Moon className="h-5 w-5 text-indigo-600" />
                 )}
               </button>
+            )}
+          </div>
+
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setNotificationsOpen((current) => !current)}
+              className="relative flex h-11 w-11 items-center justify-center rounded-2xl border border-border bg-card text-foreground transition-colors hover:bg-muted"
+              aria-label="Notifications"
+              aria-expanded={notificationsOpen}
+            >
+              <Bell className="h-5 w-5" />
+              {unreadCount > 0 && (
+                <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-black text-white">
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
+              )}
+            </button>
+
+            {notificationsOpen && (
+              <>
+                <button
+                  type="button"
+                  aria-label="Close notifications"
+                  className="fixed inset-0 z-10 cursor-default"
+                  onClick={() => setNotificationsOpen(false)}
+                />
+                <div className="absolute right-0 z-20 mt-2 w-[min(22rem,calc(100vw-2rem))] rounded-2xl border border-border bg-card p-2 shadow-xl shadow-foreground/5">
+                  <div className="flex items-center justify-between gap-3 px-3 py-2">
+                    <div>
+                      <p className="text-xs font-black text-foreground">Notifications</p>
+                      <p className="text-[11px] font-semibold text-muted-foreground">
+                        {unreadCount} unread
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => markAllRead()}
+                      disabled={unreadCount === 0}
+                      className="rounded-xl px-2 py-1 text-[11px] font-bold text-primary transition-colors hover:bg-primary/10 disabled:cursor-not-allowed disabled:text-muted-foreground"
+                    >
+                      Mark all read
+                    </button>
+                  </div>
+
+                  <div className="max-h-80 overflow-y-auto px-1 pb-1">
+                    {notificationsLoading && (
+                      <p className="rounded-xl px-3 py-3 text-xs font-bold text-muted-foreground">
+                        Loading notifications...
+                      </p>
+                    )}
+
+                    {!notificationsLoading &&
+                      notifications.slice(0, 6).map((notification) => (
+                        <button
+                          type="button"
+                          key={notification._id}
+                          onClick={() => markRead(notification._id)}
+                          className="flex w-full gap-3 rounded-xl px-3 py-3 text-left transition-colors hover:bg-muted"
+                        >
+                          <span
+                            className={cn(
+                              "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl",
+                              notification.isRead
+                                ? "bg-muted text-muted-foreground"
+                                : "bg-primary/10 text-primary"
+                            )}
+                          >
+                            <CheckCircle2 className="h-4 w-4" />
+                          </span>
+                          <span className="min-w-0">
+                            <span className="block truncate text-xs font-black text-foreground">
+                              {notification.title}
+                            </span>
+                            {notification.message && (
+                              <span className="mt-1 line-clamp-2 block text-[11px] leading-relaxed text-muted-foreground">
+                                {notification.message}
+                              </span>
+                            )}
+                          </span>
+                        </button>
+                      ))}
+
+                    {!notificationsLoading && notifications.length === 0 && (
+                      <p className="rounded-xl px-3 py-3 text-xs font-bold text-muted-foreground">
+                        No notifications yet.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </>
             )}
           </div>
 

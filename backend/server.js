@@ -6,6 +6,10 @@ const morgan = require('morgan');
 const cookieParser = require('cookie-parser');
 const connectDB = require('./config/db');
 const authRoutes = require('./routes/authRoutes');
+const cycleRoutes = require('./routes/cycleRoutes');
+const healthLogRoutes = require('./routes/healthLogRoutes');
+const reminderRoutes = require('./routes/reminderRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
 const { notFound, errorHandler } = require('./middleware/errorMiddleware');
 
 dotenv.config();
@@ -45,6 +49,10 @@ app.get('/health', (req, res) => {
 });
 
 app.use('/api/auth', authRoutes);
+app.use('/api/cycles', cycleRoutes);
+app.use('/api/health-logs', healthLogRoutes);
+app.use('/api/reminders', reminderRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
