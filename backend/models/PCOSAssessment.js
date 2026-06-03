@@ -96,7 +96,15 @@ const resultSchema = new Schema(
     },
     top_contributing_factors: [
       {
-        type: String
+        feature: {
+          type: String
+        },
+        value: {
+          type: Number
+        },
+        importance: {
+          type: Number
+        }
       }
     ],
     recommendation: {

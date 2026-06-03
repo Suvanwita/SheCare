@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -16,7 +16,14 @@ import {
   ShieldAlert,
   Sparkles,
 } from "lucide-react";
-import { cn } from "../../../lib/utils";
+import { cn, formatDate } from "../../../lib/utils";
+import { usePcosStore } from "../../../store/pcosStore";
+import type {
+  PcosContributingFactor,
+  PcosInput,
+  PcosPredictionResult,
+  PcosRiskLevel,
+} from "../../../services/pcos.service";
 
 const yesNoNumberSchema = z.coerce
   .number({ message: "Choose yes or no" })
@@ -51,22 +58,8 @@ const pcosSchema = z.object({
 
 type PcosFormInput = z.input<typeof pcosSchema>;
 type PcosFormValues = z.output<typeof pcosSchema>;
-type RiskLevel = "Low" | "Moderate" | "High";
 
-type PredictionResponse = {
-  probability: number;
-  risk_level: RiskLevel;
-  message: string;
-  top_contributing_factors: Array<{
-    feature: string;
-    value: number;
-    importance: number;
-  }>;
-  recommendation: string;
-  disclaimer: string;
-};
-
-const riskTone: Record<RiskLevel, string> = {
+const riskTone: Record<PcosRiskLevel, string> = {
   Low: "border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
   Moderate: "border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-300",
   High: "border-rose-500/20 bg-rose-500/10 text-rose-700 dark:text-rose-300",
@@ -231,15 +224,49 @@ function FactorRow({
   );
 }
 
+function HistoryItem({
+  createdAt,
+  result,
+}: {
+  createdAt?: string;
+  result: PcosPredictionResult;
+}) {
+  return (
+    <div className="rounded-2xl border border-border/60 bg-card p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-black text-foreground">
+            {Math.round(result.probability * 100)}% probability
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {createdAt ? formatDate(createdAt) : "Recent assessment"}
+          </p>
+        </div>
+        <span className={cn("rounded-full border px-2.5 py-1 text-xs font-black", riskTone[result.risk_level])}>
+          {result.risk_level}
+        </span>
+      </div>
+      <p className="mt-3 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+        {result.message}
+      </p>
+    </div>
+  );
+}
+
 export default function PcosRiskDashboardPage() {
-  const [result, setResult] = useState<PredictionResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const currentAssessment = usePcosStore((state) => state.currentAssessment);
+  const history = usePcosStore((state) => state.history);
+  const isLoading = usePcosStore((state) => state.isLoading);
+  const isSubmitting = usePcosStore((state) => state.isSubmitting);
+  const error = usePcosStore((state) => state.error);
+  const predictPcos = usePcosStore((state) => state.predictPcos);
+  const fetchHistory = usePcosStore((state) => state.fetchHistory);
   const {
     register,
     control,
     handleSubmit,
     setValue,
-    formState: { errors, isSubmitting },
+    formState: { errors },
   } = useForm<PcosFormInput, unknown, PcosFormValues>({
     resolver: zodResolver(pcosSchema),
     defaultValues: {
@@ -289,38 +316,15 @@ export default function PcosRiskDashboardPage() {
     setValue("fsh_lh", fshLhRatio, { shouldValidate: Boolean(fshLhRatio) });
   }, [fshLhRatio, setValue]);
 
+  useEffect(() => {
+    fetchHistory();
+  }, [fetchHistory]);
+
   const onSubmit = async (data: PcosFormValues) => {
-    setError(null);
-    setResult(null);
-
-    const baseUrl = process.env.NEXT_PUBLIC_ML_API_URL;
-    if (!baseUrl) {
-      setError("ML service URL is not configured. Set NEXT_PUBLIC_ML_API_URL.");
-      return;
-    }
-
-    try {
-      const response = await fetch(`${baseUrl.replace(/\/$/, "")}/predict-pcos`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-
-      const payload = await response.json();
-      if (!response.ok) {
-        throw new Error(payload?.detail || "Unable to estimate PCOS risk.");
-      }
-
-      setResult(payload as PredictionResponse);
-    } catch (requestError) {
-      setError(
-        requestError instanceof Error
-          ? requestError.message
-          : "Unable to connect to the ML service."
-      );
-    }
+    await predictPcos(data as PcosInput);
   };
 
+  const result = currentAssessment?.result ?? null;
   const probability = result ? Math.round(result.probability * 100) : 0;
   const circumference = 2 * Math.PI * 72;
   const offset = circumference - (probability / 100) * circumference;
@@ -345,7 +349,7 @@ export default function PcosRiskDashboardPage() {
           <div>
             <h3 className="text-sm font-black text-foreground">Medical disclaimer</h3>
             <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-              This assessment is informational and connects only to the ML service. It is not a diagnosis.
+              This assessment is informational and is processed through the SheCare backend. It is not a diagnosis.
             </p>
           </div>
         </div>
@@ -504,7 +508,7 @@ export default function PcosRiskDashboardPage() {
           <div className="mt-5 grid gap-4 md:grid-cols-2">
             {result?.top_contributing_factors?.length ? (
               result.top_contributing_factors.map((factor) => (
-                <FactorRow key={factor.feature} {...factor} />
+                <FactorRow key={factor.feature} {...(factor as PcosContributingFactor)} />
               ))
             ) : (
               <p className="rounded-2xl border border-border/60 bg-muted/20 p-4 text-sm text-muted-foreground md:col-span-2">
@@ -528,6 +532,33 @@ export default function PcosRiskDashboardPage() {
               {result?.disclaimer ?? "The prediction output is not a medical diagnosis."}
             </p>
           </div>
+        </div>
+      </section>
+
+      <section className="glass-card rounded-3xl border border-border/60 p-6 shadow-sm">
+        <div className="flex items-center gap-2">
+          <BrainCircuit className="h-5 w-5 text-primary" />
+          <h3 className="text-lg font-black text-foreground">Assessment history</h3>
+        </div>
+
+        <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {isLoading ? (
+            <p className="rounded-2xl border border-border/60 bg-muted/20 p-4 text-sm font-bold text-muted-foreground md:col-span-2 xl:col-span-3">
+              Loading previous assessments...
+            </p>
+          ) : history.length ? (
+            history.map((assessment) => (
+              <HistoryItem
+                key={assessment._id}
+                createdAt={assessment.createdAt}
+                result={assessment.result}
+              />
+            ))
+          ) : (
+            <p className="rounded-2xl border border-border/60 bg-muted/20 p-4 text-sm text-muted-foreground md:col-span-2 xl:col-span-3">
+              Previous PCOS assessments will appear here after your first prediction.
+            </p>
+          )}
         </div>
       </section>
 
