@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -18,13 +18,11 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { MOCK_DOCTORS, type Doctor } from "../../../data/mockDoctors";
-import {
-  MOCK_APPOINTMENTS,
-  type Appointment,
-  type AppointmentStatus,
-} from "../../../data/mockAppointments";
 import { cn, formatDate } from "../../../lib/utils";
+import { useAppointmentStore } from "../../../store/appointmentStore";
+import { useNotificationStore } from "../../../store/notificationStore";
+import type { AppointmentStatus } from "../../../services/appointment.service";
+import type { Doctor } from "../../../services/doctor.service";
 
 const bookingSchema = z.object({
   doctorId: z.string().min(1, "Select a doctor"),
@@ -42,7 +40,8 @@ type BookingFormValues = z.infer<typeof bookingSchema>;
 type AvailabilityFilter = "all" | "morning" | "afternoon" | "evening";
 
 const statusTone: Record<AppointmentStatus, string> = {
-  upcoming: "border-sky-500/20 bg-sky-500/10 text-sky-600 dark:text-sky-400",
+  pending: "border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400",
+  confirmed: "border-sky-500/20 bg-sky-500/10 text-sky-600 dark:text-sky-400",
   completed: "border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
   cancelled: "border-destructive/20 bg-destructive/10 text-destructive",
 };
@@ -77,6 +76,16 @@ function hasAvailability(doctor: Doctor, filter: AvailabilityFilter) {
   });
 }
 
+function getDoctorInitials(name: string) {
+  return name
+    .split(" ")
+    .filter((part) => part && part !== "Dr.")
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
+}
+
 function StatusCard({
   label,
   value,
@@ -102,13 +111,23 @@ function StatusCard({
 }
 
 export default function AppointmentsDashboardPage() {
-  const [appointments, setAppointments] = useState<Appointment[]>(MOCK_APPOINTMENTS);
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [specializationFilter, setSpecializationFilter] = useState("all");
   const [locationFilter, setLocationFilter] = useState("all");
   const [ratingFilter, setRatingFilter] = useState("all");
   const [availabilityFilter, setAvailabilityFilter] = useState<AvailabilityFilter>("all");
+  const doctors = useAppointmentStore((state) => state.doctors);
+  const appointments = useAppointmentStore((state) => state.appointments);
+  const isLoadingDoctors = useAppointmentStore((state) => state.isLoadingDoctors);
+  const isLoadingAppointments = useAppointmentStore((state) => state.isLoadingAppointments);
+  const isStoreSubmitting = useAppointmentStore((state) => state.isSubmitting);
+  const error = useAppointmentStore((state) => state.error);
+  const fetchDoctors = useAppointmentStore((state) => state.fetchDoctors);
+  const fetchMyAppointments = useAppointmentStore((state) => state.fetchMyAppointments);
+  const bookAppointment = useAppointmentStore((state) => state.bookAppointment);
+  const cancelMyAppointment = useAppointmentStore((state) => state.cancelAppointment);
+  const fetchNotifications = useNotificationStore((state) => state.fetchNotifications);
 
   const {
     register,
@@ -131,57 +150,69 @@ export default function AppointmentsDashboardPage() {
   const selectedSlot = useWatch({ control, name: "slot" });
 
   const specializations = useMemo(
-    () => Array.from(new Set(MOCK_DOCTORS.map((doctor) => doctor.specialization))),
-    []
+    () => Array.from(new Set(doctors.map((doctor) => doctor.specialization))),
+    [doctors]
   );
   const locations = useMemo(
-    () => Array.from(new Set(MOCK_DOCTORS.map((doctor) => doctor.location))),
-    []
+    () =>
+      Array.from(
+        new Set(
+          doctors
+            .map((doctor) => doctor.location)
+            .filter((location): location is string => Boolean(location))
+        )
+      ),
+    [doctors]
   );
 
   const filteredDoctors = useMemo(
     () =>
-      MOCK_DOCTORS.filter((doctor) => {
+      doctors.filter((doctor) => {
         const query = searchQuery.trim().toLowerCase();
         const matchesSearch =
           !query ||
           doctor.name.toLowerCase().includes(query) ||
           doctor.specialization.toLowerCase().includes(query) ||
-          doctor.location.toLowerCase().includes(query);
-        const matchesSpecialization =
-          specializationFilter === "all" || doctor.specialization === specializationFilter;
-        const matchesLocation = locationFilter === "all" || doctor.location === locationFilter;
-        const matchesRating =
-          ratingFilter === "all" || doctor.rating >= Number(ratingFilter);
+          (doctor.location ?? "").toLowerCase().includes(query);
         const matchesAvailability = hasAvailability(doctor, availabilityFilter);
 
-        return (
-          matchesSearch &&
-          matchesSpecialization &&
-          matchesLocation &&
-          matchesRating &&
-          matchesAvailability
-        );
+        return matchesSearch && matchesAvailability;
       }),
-    [availabilityFilter, locationFilter, ratingFilter, searchQuery, specializationFilter]
+    [availabilityFilter, doctors, searchQuery]
   );
 
-  const upcomingCount = appointments.filter((appointment) => appointment.status === "upcoming").length;
+  const upcomingCount = appointments.filter((appointment) =>
+    ["pending", "confirmed"].includes(appointment.status)
+  ).length;
   const completedCount = appointments.filter((appointment) => appointment.status === "completed").length;
   const cancelledCount = appointments.filter((appointment) => appointment.status === "cancelled").length;
 
   const sortedAppointments = useMemo(
     () =>
       [...appointments].sort((a, b) =>
-        `${b.date}T${b.time}`.localeCompare(`${a.date}T${a.time}`)
+        `${b.date}T${b.slot}`.localeCompare(`${a.date}T${a.slot}`)
       ),
     [appointments]
   );
 
+  useEffect(() => {
+    fetchMyAppointments();
+  }, [fetchMyAppointments]);
+
+  useEffect(() => {
+    fetchDoctors({
+      page: 1,
+      limit: 50,
+      specialization: specializationFilter === "all" ? undefined : specializationFilter,
+      location: locationFilter === "all" ? undefined : locationFilter,
+      minRating: ratingFilter === "all" ? undefined : ratingFilter,
+    });
+  }, [fetchDoctors, locationFilter, ratingFilter, specializationFilter]);
+
   const openBooking = (doctor: Doctor) => {
     setSelectedDoctor(doctor);
     reset({
-      doctorId: doctor.id,
+      doctorId: doctor._id,
       date: "",
       slot: doctor.availableSlots[0] ?? "",
       appointmentType: "online",
@@ -194,37 +225,27 @@ export default function AppointmentsDashboardPage() {
     setSelectedDoctor(null);
   };
 
-  const onSubmit = (data: BookingFormValues) => {
-    const doctor = MOCK_DOCTORS.find((item) => item.id === data.doctorId);
+  const onSubmit = async (data: BookingFormValues) => {
+    const doctor = doctors.find((item) => item._id === data.doctorId);
     if (!doctor) {
       return;
     }
 
-    setAppointments((currentAppointments) => [
-      {
-        id: `appointment-local-${currentAppointments.length + 1}-${data.date}-${data.slot}`,
-        doctorId: doctor.id,
-        doctorName: doctor.name,
-        date: data.date,
-        time: data.slot,
-        type: data.appointmentType,
-        status: "upcoming",
-        reason: data.reason,
-        notes: data.notes?.trim() || undefined,
-      },
-      ...currentAppointments,
-    ]);
+    await bookAppointment({
+      doctor: doctor._id,
+      date: data.date,
+      slot: data.slot,
+      appointmentType: data.appointmentType,
+      reason: data.reason,
+      notes: data.notes?.trim() || undefined,
+    });
+    await fetchNotifications({ page: 1, limit: 20 });
     closeBooking();
   };
 
-  const cancelAppointment = (id: string) => {
-    setAppointments((currentAppointments) =>
-      currentAppointments.map((appointment) =>
-        appointment.id === id
-          ? { ...appointment, status: "cancelled" }
-          : appointment
-      )
-    );
+  const cancelAppointment = async (id: string) => {
+    await cancelMyAppointment(id);
+    await fetchNotifications({ page: 1, limit: 20 });
   };
 
   return (
@@ -318,10 +339,24 @@ export default function AppointmentsDashboardPage() {
         </div>
       </section>
 
+      {(error || isLoadingDoctors || isLoadingAppointments) && (
+        <section
+          className={cn(
+            "rounded-3xl border px-5 py-4 text-sm font-bold",
+            error
+              ? "border-destructive/20 bg-destructive/10 text-destructive"
+              : "border-border/60 bg-card text-muted-foreground"
+          )}
+        >
+          {error ||
+            (isLoadingDoctors ? "Loading doctors..." : "Loading appointments...")}
+        </section>
+      )}
+
       <section className="grid gap-5 xl:grid-cols-2">
         {filteredDoctors.map((doctor, index) => (
           <motion.article
-            key={doctor.id}
+            key={doctor._id}
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.2, delay: index * 0.04 }}
@@ -330,7 +365,7 @@ export default function AppointmentsDashboardPage() {
             <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
               <div className="flex gap-4">
                 <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-3xl bg-gradient-to-tr from-primary to-secondary text-base font-black text-white shadow-md shadow-primary/20">
-                  {doctor.avatarInitials}
+                  {getDoctorInitials(doctor.name)}
                 </div>
                 <div>
                   <h3 className="text-lg font-black text-foreground">{doctor.name}</h3>
@@ -342,11 +377,11 @@ export default function AppointmentsDashboardPage() {
                     </span>
                     <span className="inline-flex items-center gap-1 rounded-full bg-muted/50 px-2.5 py-1">
                       <Stethoscope className="h-3.5 w-3.5 text-primary" />
-                      {doctor.experience} yrs
+                      {doctor.experienceYears ?? 0} yrs
                     </span>
                     <span className="inline-flex items-center gap-1 rounded-full bg-muted/50 px-2.5 py-1">
                       <MapPin className="h-3.5 w-3.5 text-primary" />
-                      {doctor.location}
+                      {doctor.location ?? "Remote"}
                     </span>
                   </div>
                 </div>
@@ -357,7 +392,7 @@ export default function AppointmentsDashboardPage() {
                   Fee
                 </p>
                 <p className="text-xl font-black text-foreground">
-                  ₹{doctor.consultationFee.toLocaleString()}
+                  ₹{(doctor.consultationFee ?? 0).toLocaleString()}
                 </p>
               </div>
             </div>
@@ -381,6 +416,7 @@ export default function AppointmentsDashboardPage() {
             <button
               type="button"
               onClick={() => openBooking(doctor)}
+              disabled={isStoreSubmitting}
               className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-primary to-secondary px-4 py-3 text-sm font-bold text-white shadow-md shadow-primary/15 transition hover:opacity-95 sm:w-auto"
             >
               <CalendarCheck className="h-4 w-4" />
@@ -388,13 +424,18 @@ export default function AppointmentsDashboardPage() {
             </button>
           </motion.article>
         ))}
+        {!isLoadingDoctors && filteredDoctors.length === 0 && (
+          <div className="rounded-3xl border border-border/60 bg-card p-6 text-sm font-bold text-muted-foreground shadow-sm xl:col-span-2">
+            No doctors match these filters.
+          </div>
+        )}
       </section>
 
       <section className="glass-card rounded-3xl border border-border/60 p-6 shadow-sm">
         <div className="mb-5">
           <h3 className="text-lg font-black text-foreground">My appointments</h3>
           <p className="mt-1 text-xs text-muted-foreground">
-            Booked appointments are stored locally for this session.
+            Booked appointments are synced with your SheCare account.
           </p>
         </div>
 
@@ -412,21 +453,21 @@ export default function AppointmentsDashboardPage() {
             </thead>
             <tbody>
               {sortedAppointments.map((appointment) => (
-                <tr key={appointment.id} className="bg-card shadow-sm">
+                <tr key={appointment._id} className="bg-card shadow-sm">
                   <td className="rounded-l-2xl px-3 py-3">
-                    <p className="font-bold text-foreground">{appointment.doctorName}</p>
+                    <p className="font-bold text-foreground">{appointment.doctor.name}</p>
                     <p className="text-xs text-muted-foreground">{appointment.reason}</p>
                   </td>
                   <td className="px-3 py-3 text-muted-foreground">{formatDate(appointment.date)}</td>
-                  <td className="px-3 py-3 font-semibold">{appointment.time}</td>
+                  <td className="px-3 py-3 font-semibold">{appointment.slot}</td>
                   <td className="px-3 py-3">
                     <span className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/30 px-2.5 py-1 text-xs font-bold capitalize text-muted-foreground">
-                      {appointment.type === "online" ? (
+                      {appointment.appointmentType === "online" ? (
                         <Monitor className="h-3.5 w-3.5" />
                       ) : (
                         <Users className="h-3.5 w-3.5" />
                       )}
-                      {appointment.type}
+                      {appointment.appointmentType}
                     </span>
                   </td>
                   <td className="px-3 py-3">
@@ -437,8 +478,8 @@ export default function AppointmentsDashboardPage() {
                   <td className="rounded-r-2xl px-3 py-3 text-right">
                     <button
                       type="button"
-                      onClick={() => cancelAppointment(appointment.id)}
-                      disabled={appointment.status === "cancelled"}
+                      onClick={() => cancelAppointment(appointment._id)}
+                      disabled={appointment.status === "cancelled" || isStoreSubmitting}
                       className="inline-flex items-center gap-2 rounded-2xl border border-border bg-background px-3 py-2 text-xs font-bold text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -447,6 +488,16 @@ export default function AppointmentsDashboardPage() {
                   </td>
                 </tr>
               ))}
+              {!isLoadingAppointments && sortedAppointments.length === 0 && (
+                <tr>
+                  <td
+                    colSpan={6}
+                    className="rounded-2xl bg-card px-3 py-5 text-center text-sm font-bold text-muted-foreground shadow-sm"
+                  >
+                    No appointments yet.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -477,7 +528,7 @@ export default function AppointmentsDashboardPage() {
                     {selectedDoctor.name}
                   </h3>
                   <p className="text-sm text-muted-foreground">
-                    {selectedDoctor.specialization} · {selectedDoctor.location}
+                    {selectedDoctor.specialization} · {selectedDoctor.location ?? "Remote"}
                   </p>
                 </div>
                 <button
@@ -596,7 +647,7 @@ export default function AppointmentsDashboardPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || isStoreSubmitting}
                   className="rounded-2xl bg-gradient-to-r from-primary to-secondary px-4 py-3 text-sm font-bold text-white shadow-md shadow-primary/15 transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   Confirm booking
