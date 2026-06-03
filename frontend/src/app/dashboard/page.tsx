@@ -12,6 +12,8 @@ import { useAnalyticsStore } from "../../store/analyticsStore";
 
 export default function DashboardPage() {
   const summary = useAnalyticsStore((state) => state.summary);
+  const isLoading = useAnalyticsStore((state) => state.isLoading);
+  const error = useAnalyticsStore((state) => state.error);
   const fetchSummary = useAnalyticsStore((state) => state.fetchSummary);
 
   useEffect(() => {
@@ -64,6 +66,19 @@ export default function DashboardPage() {
           <span className="text-xs font-bold text-foreground/80">Self-Care Sync Active</span>
         </div>
       </motion.div>
+
+      {(isLoading || error || !summary) && (
+        <motion.div
+          variants={itemVariants}
+          className={`rounded-2xl border px-4 py-3 text-xs font-bold ${
+            error
+              ? "border-destructive/20 bg-destructive/10 text-destructive"
+              : "border-border/60 bg-card text-muted-foreground"
+          }`}
+        >
+          {error || (isLoading ? "Loading dashboard analytics..." : "Add health data to personalize this overview.")}
+        </motion.div>
+      )}
 
       {/* 2. Key Stats Vitals Row */}
       <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-3 gap-5">

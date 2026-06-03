@@ -34,20 +34,11 @@ const CYCLE_ML_API_URL =
 export async function predictCycleIrregularity(
   payload: CycleIrregularityPayload
 ): Promise<CycleIrregularityPrediction> {
-  const response = await fetch(
+  const response = await api.post<CycleIrregularityPrediction>(
     `${CYCLE_ML_API_URL.replace(/\/$/, "")}/predict-cycle-irregularity`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    }
+    payload
   );
 
-  const body = await response.json();
-
-  if (!response.ok) {
-    throw new Error(body?.detail || "Cycle insight is temporarily unavailable.");
-  }
-
-  return body as CycleIrregularityPrediction;
+  return response.data;
 }
+import api from "../lib/api";

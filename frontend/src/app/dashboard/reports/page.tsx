@@ -186,26 +186,34 @@ export default function ReportsDashboardPage() {
 
     const reportTitle = title.trim() || selectedFile.name.replace(/\.[^/.]+$/, "");
 
-    await uploadReportToBackend({
-      file: selectedFile,
-      title: reportTitle,
-      category,
-      doctorName: doctorName.trim() || undefined,
-      notes: notes.trim() || undefined,
-    });
+    try {
+      await uploadReportToBackend({
+        file: selectedFile,
+        title: reportTitle,
+        category,
+        doctorName: doctorName.trim() || undefined,
+        notes: notes.trim() || undefined,
+      });
 
-    setTitle("");
-    setCategory(REPORT_CATEGORIES[0]);
-    setDoctorName("");
-    setNotes("");
-    setSelectedFile(null);
-    setFileError("");
+      setTitle("");
+      setCategory(REPORT_CATEGORIES[0]);
+      setDoctorName("");
+      setNotes("");
+      setSelectedFile(null);
+      setFileError("");
+    } catch {
+      // Store error state is rendered on the page.
+    }
   };
 
   const deleteReport = async (id: string) => {
-    await deleteReportFromBackend(id);
-    if (previewReport?._id === id) {
-      setPreviewReport(null);
+    try {
+      await deleteReportFromBackend(id);
+      if (previewReport?._id === id) {
+        setPreviewReport(null);
+      }
+    } catch {
+      // Store error state is rendered on the page.
     }
   };
 

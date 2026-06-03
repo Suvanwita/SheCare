@@ -231,21 +231,37 @@ export default function AppointmentsDashboardPage() {
       return;
     }
 
-    await bookAppointment({
-      doctor: doctor._id,
-      date: data.date,
-      slot: data.slot,
-      appointmentType: data.appointmentType,
-      reason: data.reason,
-      notes: data.notes?.trim() || undefined,
-    });
-    await fetchNotifications({ page: 1, limit: 20 });
-    closeBooking();
+    try {
+      await bookAppointment({
+        doctor: doctor._id,
+        date: data.date,
+        slot: data.slot,
+        appointmentType: data.appointmentType,
+        reason: data.reason,
+        notes: data.notes?.trim() || undefined,
+      });
+      await fetchNotifications({ page: 1, limit: 20 });
+      reset({
+        doctorId: "",
+        date: "",
+        slot: "",
+        appointmentType: "online",
+        reason: "",
+        notes: "",
+      });
+      closeBooking();
+    } catch {
+      // Store error state is rendered on the page.
+    }
   };
 
   const cancelAppointment = async (id: string) => {
-    await cancelMyAppointment(id);
-    await fetchNotifications({ page: 1, limit: 20 });
+    try {
+      await cancelMyAppointment(id);
+      await fetchNotifications({ page: 1, limit: 20 });
+    } catch {
+      // Store error state is rendered on the page.
+    }
   };
 
   return (

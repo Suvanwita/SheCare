@@ -321,7 +321,11 @@ export default function PcosRiskDashboardPage() {
   }, [fetchHistory]);
 
   const onSubmit = async (data: PcosFormValues) => {
-    await predictPcos(data as PcosInput);
+    try {
+      await predictPcos(data as PcosInput);
+    } catch {
+      // Store error state is rendered below the form.
+    }
   };
 
   const result = currentAssessment?.result ?? null;

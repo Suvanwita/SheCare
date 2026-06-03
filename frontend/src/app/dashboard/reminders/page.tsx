@@ -18,11 +18,6 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import {
-  REMINDER_PRIORITY_OPTIONS,
-  REMINDER_REPEAT_OPTIONS,
-  REMINDER_TYPE_OPTIONS,
-} from "../../../data/mockReminders";
 import { cn, formatDate } from "../../../lib/utils";
 import { useNotificationStore } from "../../../store/notificationStore";
 import { useReminderStore } from "../../../store/reminderStore";
@@ -30,6 +25,7 @@ import type {
   Reminder,
   ReminderPayload,
   ReminderPriority,
+  ReminderRepeat,
   ReminderStatus,
   ReminderType,
 } from "../../../services/reminder.service";
@@ -51,6 +47,26 @@ const reminderSchema = z.object({
 });
 
 type ReminderFormValues = z.infer<typeof reminderSchema>;
+
+const REMINDER_TYPE_OPTIONS: Array<{ value: ReminderType; label: string }> = [
+  { value: "medicine", label: "Medicine" },
+  { value: "cycle", label: "Cycle" },
+  { value: "appointment", label: "Appointment" },
+  { value: "custom", label: "Custom" },
+];
+
+const REMINDER_REPEAT_OPTIONS: Array<{ value: ReminderRepeat; label: string }> = [
+  { value: "none", label: "None" },
+  { value: "daily", label: "Daily" },
+  { value: "weekly", label: "Weekly" },
+  { value: "monthly", label: "Monthly" },
+];
+
+const REMINDER_PRIORITY_OPTIONS: Array<{ value: ReminderPriority; label: string }> = [
+  { value: "low", label: "Low" },
+  { value: "medium", label: "Medium" },
+  { value: "high", label: "High" },
+];
 
 const priorityTone: Record<ReminderPriority, string> = {
   low: "border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
@@ -244,18 +260,22 @@ export default function RemindersDashboardPage() {
   }, [fetchNotifications, fetchReminders]);
 
   const onSubmit = async (data: ReminderFormValues) => {
-    await createReminder(toReminderPayload(data));
-    await fetchNotifications({ page: 1, limit: 20 });
+    try {
+      await createReminder(toReminderPayload(data));
+      await fetchNotifications({ page: 1, limit: 20 });
 
-    reset({
-      title: "",
-      type: "medicine",
-      message: "",
-      date: "",
-      time: "",
-      repeat: "none",
-      priority: "medium",
-    });
+      reset({
+        title: "",
+        type: "medicine",
+        message: "",
+        date: "",
+        time: "",
+        repeat: "none",
+        priority: "medium",
+      });
+    } catch {
+      // Store error state is rendered below the form.
+    }
   };
 
   const openEdit = (reminder: Reminder) => {
@@ -276,17 +296,29 @@ export default function RemindersDashboardPage() {
       return;
     }
 
-    await updateReminder(editingReminder._id, toReminderPayload(data));
-    setEditingReminder(null);
+    try {
+      await updateReminder(editingReminder._id, toReminderPayload(data));
+      setEditingReminder(null);
+    } catch {
+      // Store error state is rendered on the page.
+    }
   };
 
   const deleteReminder = async (id: string) => {
-    await removeReminder(id);
+    try {
+      await removeReminder(id);
+    } catch {
+      // Store error state is rendered on the page.
+    }
   };
 
   const markComplete = async (id: string) => {
-    await completeReminder(id);
-    await fetchNotifications({ page: 1, limit: 20 });
+    try {
+      await completeReminder(id);
+      await fetchNotifications({ page: 1, limit: 20 });
+    } catch {
+      // Store error state is rendered on the page.
+    }
   };
 
   return (

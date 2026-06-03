@@ -310,6 +310,27 @@ export default function CycleDashboardPage() {
     [cycles]
   );
 
+  const resetCycleForm = () => {
+    reset({
+      startDate: "",
+      endDate: "",
+      flowIntensity: "medium",
+      symptoms: [],
+      age: undefined,
+      cycle_length: undefined,
+      period_duration: undefined,
+      stress_level: 5,
+      sleep_hours: undefined,
+      exercise_frequency: undefined,
+      bmi: undefined,
+      mood_score: 5,
+      pain_level: 0,
+      weight_change: 0,
+      previous_cycle_length: undefined,
+      notes: "",
+    });
+  };
+
   const onSubmit = async (data: CycleFormValues) => {
     setFormError("");
     setInsightError(null);
@@ -324,6 +345,7 @@ export default function CycleDashboardPage() {
         symptoms: data.symptoms,
         notes: data.notes?.trim() || undefined,
       });
+      resetCycleForm();
     } catch (submitError) {
       setFormError(submitError instanceof Error ? submitError.message : "Unable to save cycle.");
       return;
@@ -344,24 +366,6 @@ export default function CycleDashboardPage() {
         previous_cycle_length: data.previous_cycle_length,
       });
       setCycleInsight(insight);
-      reset({
-        startDate: "",
-        endDate: "",
-        flowIntensity: "medium",
-        symptoms: [],
-        age: undefined,
-        cycle_length: undefined,
-        period_duration: undefined,
-        stress_level: 5,
-        sleep_hours: undefined,
-        exercise_frequency: undefined,
-        bmi: undefined,
-        mood_score: 5,
-        pain_level: 0,
-        weight_change: 0,
-        previous_cycle_length: undefined,
-        notes: "",
-      });
     } catch {
       setInsightError("Cycle saved, but ML cycle insight is temporarily unavailable.");
     }
@@ -715,7 +719,7 @@ export default function CycleDashboardPage() {
           <h3 className="text-lg font-black text-foreground">Cycle length trend</h3>
           <p className="mt-1 text-xs text-muted-foreground">Based on stored cycle history.</p>
           <div className="mt-5 h-[300px] min-w-0">
-            {chartsReady && (
+            {chartsReady && cycleLengthTrend.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={cycleLengthTrend} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border) / 0.45)" />
@@ -731,6 +735,10 @@ export default function CycleDashboardPage() {
                   <Line type="monotone" dataKey="length" name="Cycle length" stroke="hsl(var(--primary))" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
                 </LineChart>
               </ResponsiveContainer>
+            ) : (
+              <div className="flex h-full items-center justify-center rounded-3xl border border-dashed border-border bg-muted/10 p-5 text-center text-sm font-bold text-muted-foreground">
+                Cycle length trend appears after cycle records are added.
+              </div>
             )}
           </div>
         </div>
@@ -739,7 +747,7 @@ export default function CycleDashboardPage() {
           <h3 className="text-lg font-black text-foreground">Flow intensity</h3>
           <p className="mt-1 text-xs text-muted-foreground">Light = 1, medium = 2, heavy = 3.</p>
           <div className="mt-5 h-[300px] min-w-0">
-            {chartsReady && (
+            {chartsReady && flowTrend.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={flowTrend} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border) / 0.45)" />
@@ -755,6 +763,10 @@ export default function CycleDashboardPage() {
                   <Bar dataKey="flow" name="Flow intensity" fill="hsl(var(--secondary))" radius={[8, 8, 0, 0]} maxBarSize={42} />
                 </BarChart>
               </ResponsiveContainer>
+            ) : (
+              <div className="flex h-full items-center justify-center rounded-3xl border border-dashed border-border bg-muted/10 p-5 text-center text-sm font-bold text-muted-foreground">
+                Flow trend appears after cycle records are added.
+              </div>
             )}
           </div>
         </div>

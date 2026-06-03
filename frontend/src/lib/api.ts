@@ -70,9 +70,17 @@ api.interceptors.response.use(
       error.response?.status !== 401 ||
       !originalRequest ||
       originalRequest._retry ||
-      !refreshToken ||
       originalRequest.url?.includes("/auth/refresh")
     ) {
+      if (error.response?.status === 401) {
+        handleAuthFailure();
+      }
+
+      return Promise.reject(error);
+    }
+
+    if (!refreshToken) {
+      handleAuthFailure();
       return Promise.reject(error);
     }
 
