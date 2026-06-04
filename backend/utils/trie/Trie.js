@@ -12,6 +12,10 @@ class Trie {
     this.root = new TrieNode();
   }
 
+  isEmpty() {
+    return this.root.children.size === 0;
+  }
+
   normalize(text) {
     return String(text || '')
       .trim()
@@ -114,7 +118,7 @@ class Trie {
       payload.slug,
       payload.category,
       payload.type,
-      payload.title
+      payload.label || payload.title
     ].join(':');
   }
 }

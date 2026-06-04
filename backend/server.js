@@ -15,7 +15,9 @@ const appointmentRoutes = require('./routes/appointmentRoutes');
 const reportRoutes = require('./routes/reportRoutes');
 const pcosRoutes = require('./routes/pcosRoutes');
 const analyticsRoutes = require('./routes/analyticsRoutes');
+const articleRoutes = require('./routes/articleRoutes');
 const { notFound, errorHandler } = require('./middleware/errorMiddleware');
+const { buildArticleTrie } = require('./utils/trie/articleTrie');
 
 dotenv.config();
 
@@ -63,16 +65,29 @@ app.use('/api/appointments', appointmentRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/pcos', pcosRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/articles', articleRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
 
-if (require.main === module) {
-  connectDB();
+const startServer = async () => {
+  await connectDB();
+
+  buildArticleTrie()
+    .then(() => {
+      console.log('Article search trie built.');
+    })
+    .catch((error) => {
+      console.error(`Article search trie build failed: ${error.message}`);
+    });
 
   app.listen(PORT, () => {
     console.log(`SheCare backend server running on port ${PORT}`);
   });
+};
+
+if (require.main === module) {
+  startServer();
 }
 
 module.exports = app;

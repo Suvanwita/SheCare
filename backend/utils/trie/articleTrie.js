@@ -2,9 +2,11 @@ const Article = require('../../models/Article');
 const Trie = require('./Trie');
 
 let articleTrie = new Trie();
+let buildPromise = null;
 
-const createPayload = (article, type) => ({
+const createPayload = (article, type, label) => ({
   articleId: article._id,
+  label,
   title: article.title,
   slug: article.slug,
   category: article.category,
@@ -21,25 +23,53 @@ const insertArticleValue = (trie, value, payload) => {
 };
 
 const insertArticle = (trie, article) => {
-  insertArticleValue(trie, article.title, createPayload(article, 'title'));
-  insertArticleValue(trie, article.tags, createPayload(article, 'tag'));
-  insertArticleValue(trie, article.keywords, createPayload(article, 'keyword'));
-  insertArticleValue(trie, article.category, createPayload(article, 'category'));
+  insertArticleValue(
+    trie,
+    article.title,
+    createPayload(article, 'title', article.title)
+  );
+  (article.tags || []).forEach((tag) => {
+    insertArticleValue(trie, tag, createPayload(article, 'tag', tag));
+  });
+  (article.keywords || []).forEach((keyword) => {
+    insertArticleValue(trie, keyword, createPayload(article, 'keyword', keyword));
+  });
+  insertArticleValue(
+    trie,
+    article.category,
+    createPayload(article, 'category', article.category)
+  );
 };
 
 const buildArticleTrie = async () => {
-  const freshTrie = new Trie();
-  const articles = await Article.find({ isPublished: true })
-    .select('_id title slug category tags keywords')
-    .lean();
+  if (buildPromise) {
+    return buildPromise;
+  }
 
-  articles.forEach((article) => insertArticle(freshTrie, article));
-  articleTrie = freshTrie;
+  buildPromise = (async () => {
+    const freshTrie = new Trie();
+    const articles = await Article.find({ isPublished: true })
+      .select('_id title slug category tags keywords')
+      .lean();
 
-  return articleTrie;
+    articles.forEach((article) => insertArticle(freshTrie, article));
+    articleTrie = freshTrie;
+
+    return articleTrie;
+  })();
+
+  try {
+    return await buildPromise;
+  } finally {
+    buildPromise = null;
+  }
 };
 
-const getArticleSuggestions = (query, limit) => {
+const getArticleSuggestions = async (query, limit) => {
+  if (articleTrie.isEmpty()) {
+    await buildArticleTrie();
+  }
+
   return articleTrie.getSuggestions(query, limit);
 };
 

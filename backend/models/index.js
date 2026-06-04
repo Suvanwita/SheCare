@@ -10,5 +10,6 @@ module.exports = {
   Report: require('./Report'),
   Prescription: require('./Prescription'),
   PCOSAssessment: require('./PCOSAssessment'),
+  Article: require('./Article'),
   AuditLog: require('./AuditLog')
 };
