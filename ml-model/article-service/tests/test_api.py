@@ -19,5 +19,10 @@ def test_similar_articles_placeholder() -> None:
 
     assert response.success is True
     assert response.source.startswith("tfidf-cosine-similarity")
-    assert response.recommendations == []
-    assert "model files are missing" in response.source.lower()
+    assert len(response.recommendations) <= 5
+
+    if response.recommendations:
+        assert response.recommendations[0].slug
+        assert response.recommendations[0].similarity_score >= 0
+    else:
+        assert "model files are missing" in response.source.lower()

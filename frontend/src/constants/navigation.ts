@@ -5,6 +5,7 @@ import {
   CalendarCheck,
   CalendarDays,
   ClipboardList,
+  BookOpen,
   FileText,
   LayoutDashboard,
   ShieldAlert,
@@ -21,6 +22,7 @@ export const DASHBOARD_NAVIGATION: DashboardNavigationItem[] = [
   { title: "Overview", href: "/dashboard", icon: LayoutDashboard },
   { title: "Cycle Tracker", href: "/dashboard/cycle", icon: CalendarDays },
   { title: "Health Logs", href: "/dashboard/health-logs", icon: ClipboardList },
+  { title: "Knowledge Hub", href: "/dashboard/knowledge", icon: BookOpen },
   { title: "Reminders", href: "/dashboard/reminders", icon: Bell },
   { title: "Appointments", href: "/dashboard/appointments", icon: CalendarCheck },
   { title: "Reports", href: "/dashboard/reports", icon: FileText },
@@ -47,6 +49,11 @@ export const DASHBOARD_ROUTE_SUMMARIES: Record<string, { title: string; descript
     title: "Health Logs",
     description: "Capture symptoms, mood, hydration, sleep, and notes for daily wellness patterns.",
     icon: ClipboardList,
+  },
+  "/dashboard/knowledge": {
+    title: "Knowledge Hub",
+    description: "Read cycle, hormone, PCOS, and wellness education with smart article suggestions.",
+    icon: BookOpen,
   },
   "/dashboard/reminders": {
     title: "Reminders",

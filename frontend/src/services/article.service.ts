@@ -41,11 +41,49 @@ export interface SimilarArticlesResponse {
   recommendations: SimilarArticle[];
 }
 
+export interface ArticlePagination {
+  page: number;
+  limit: number;
+  total: number;
+  pages: number;
+}
+
+export interface ArticleFilters {
+  q?: string;
+  category?: string;
+  featured?: boolean;
+  page?: number;
+  limit?: number;
+}
+
+export interface ArticleSuggestion {
+  label: string;
+  type: "title" | "tag" | "keyword" | "category";
+  slug: string;
+  category: string;
+}
+
 interface ApiResponse<T> {
   success: boolean;
   message?: string;
   data: T;
 }
+
+export const getArticles = async (filters: ArticleFilters = {}) => {
+  const response = await api.get<
+    ApiResponse<{ articles: Article[]; pagination: ArticlePagination }>
+  >("/articles", {
+    params: {
+      q: filters.q || undefined,
+      category: filters.category && filters.category !== "all" ? filters.category : undefined,
+      featured: filters.featured,
+      page: filters.page,
+      limit: filters.limit,
+    },
+  });
+
+  return response.data.data;
+};
 
 export const getArticle = async (slug: string) => {
   const response = await api.get<ApiResponse<{ article: Article }>>(
@@ -61,4 +99,16 @@ export const getSimilarArticles = async (slug: string) => {
   );
 
   return response.data;
+};
+
+export const getArticleSuggestions = async (query: string) => {
+  const response = await api.get<
+    ApiResponse<{ suggestions: ArticleSuggestion[] }>
+  >("/articles/search/suggestions", {
+    params: {
+      q: query,
+    },
+  });
+
+  return response.data.data.suggestions;
 };

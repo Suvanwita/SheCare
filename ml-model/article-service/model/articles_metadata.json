@@ -1,0 +1,56 @@
+[
+  {
+    "article_id": "art-1",
+    "slug": "understanding-pcos-symptoms",
+    "title": "Understanding PCOS Symptoms",
+    "category": "PCOS",
+    "summary": "Learn common PCOS signs such as irregular periods, acne, hair changes, and hormone-related symptoms.",
+    "reading_time": 5,
+    "cover_image": "/images/knowledge/pcos-symptoms.jpg"
+  },
+  {
+    "article_id": "art-2",
+    "slug": "pcos-nutrition-basics",
+    "title": "PCOS Nutrition Basics",
+    "category": "PCOS",
+    "summary": "A practical guide to balanced meals, fiber, protein, and insulin-friendly habits for PCOS care.",
+    "reading_time": 6,
+    "cover_image": "/images/knowledge/pcos-nutrition.jpg"
+  },
+  {
+    "article_id": "art-3",
+    "slug": "how-to-track-your-menstrual-cycle",
+    "title": "How to Track Your Menstrual Cycle",
+    "category": "Menstrual Health",
+    "summary": "Track dates, symptoms, flow, mood, and pain levels to understand your cycle patterns over time.",
+    "reading_time": 4,
+    "cover_image": "/images/knowledge/cycle-tracking.jpg"
+  },
+  {
+    "article_id": "art-4",
+    "slug": "irregular-periods-when-to-seek-care",
+    "title": "Irregular Periods: When to Seek Care",
+    "category": "Menstrual Health",
+    "summary": "Understand common causes of irregular periods and signs that deserve a healthcare conversation.",
+    "reading_time": 5,
+    "cover_image": "/images/knowledge/irregular-periods.jpg"
+  },
+  {
+    "article_id": "art-5",
+    "slug": "hormonal-acne-and-cycle-changes",
+    "title": "Hormonal Acne and Cycle Changes",
+    "category": "Skin & Hormones",
+    "summary": "Explore why acne may flare around cycle changes and how hormone patterns can affect skin.",
+    "reading_time": 4,
+    "cover_image": "/images/knowledge/hormonal-acne.jpg"
+  },
+  {
+    "article_id": "art-6",
+    "slug": "stress-sleep-and-hormone-balance",
+    "title": "Stress Sleep and Hormone Balance",
+    "category": "Lifestyle",
+    "summary": "See how stress and sleep can influence cycle symptoms, cravings, energy, and hormone rhythms.",
+    "reading_time": 5,
+    "cover_image": "/images/knowledge/stress-sleep.jpg"
+  }
+]
