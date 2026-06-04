@@ -1,5 +1,5 @@
-from app.main import health_check, similar_articles
-from app.schemas import SimilarArticlesRequest
+from app.main import health_check, similar_articles_by_text
+from app.schemas import SimilarArticlesByTextRequest
 
 
 def test_health_check() -> None:
@@ -10,13 +10,14 @@ def test_health_check() -> None:
 
 
 def test_similar_articles_placeholder() -> None:
-    response = similar_articles(
-        SimilarArticlesRequest(
-            title="PCOS nutrition basics",
-            tags=["pcos", "nutrition"],
+    response = similar_articles_by_text(
+        SimilarArticlesByTextRequest(
+            text="PCOS nutrition basics",
             limit=5,
         )
     )
 
+    assert response.success is True
+    assert response.source.startswith("tfidf-cosine-similarity")
     assert response.recommendations == []
-    assert "model files are missing" in response.message.lower()
+    assert "model files are missing" in response.source.lower()

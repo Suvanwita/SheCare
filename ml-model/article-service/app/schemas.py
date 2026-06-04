@@ -10,14 +10,14 @@ class HealthResponse(BaseModel):
     environment: str
 
 
-class SimilarArticlesRequest(BaseModel):
-    article_id: Optional[str] = Field(default=None)
-    slug: Optional[str] = Field(default=None)
-    title: Optional[str] = Field(default=None)
-    content: Optional[str] = Field(default=None)
-    tags: List[str] = Field(default_factory=list)
-    keywords: List[str] = Field(default_factory=list)
-    limit: int = Field(default=5, ge=1, le=20)
+class SimilarArticlesBySlugRequest(BaseModel):
+    slug: str = Field(min_length=1)
+    limit: int = Field(default=4, ge=1, le=20)
+
+
+class SimilarArticlesByTextRequest(BaseModel):
+    text: str = Field(min_length=2)
+    limit: int = Field(default=4, ge=1, le=20)
 
 
 class SimilarArticle(BaseModel):
@@ -31,5 +31,6 @@ class SimilarArticle(BaseModel):
 
 
 class SimilarArticlesResponse(BaseModel):
+    success: bool
+    source: str
     recommendations: List[SimilarArticle]
-    message: str

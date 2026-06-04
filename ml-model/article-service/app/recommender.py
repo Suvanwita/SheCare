@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import joblib
-from app.schemas import SimilarArticlesRequest, SimilarArticlesResponse
+from app.schemas import SimilarArticlesResponse
 from app.utils.text_cleaning import combine_text_fields
 from sklearn.metrics.pairwise import cosine_similarity
 
@@ -20,7 +20,11 @@ _is_loaded = False
 
 
 def _empty_response(message: str) -> SimilarArticlesResponse:
-    return SimilarArticlesResponse(recommendations=[], message=message)
+    return SimilarArticlesResponse(
+        success=True,
+        source=f"tfidf-cosine-similarity: {message}",
+        recommendations=[],
+    )
 
 
 def _missing_artifact_message() -> str:
@@ -143,8 +147,9 @@ def get_similar_articles_by_slug(
     )
 
     return SimilarArticlesResponse(
+        success=True,
+        source="tfidf-cosine-similarity",
         recommendations=recommendations,
-        message="Similar articles generated from article slug.",
     )
 
 
@@ -167,22 +172,7 @@ def get_similar_articles_by_text(
     recommendations = _top_matches(similarities, limit=limit)
 
     return SimilarArticlesResponse(
+        success=True,
+        source="tfidf-cosine-similarity",
         recommendations=recommendations,
-        message="Similar articles generated from input text.",
     )
-
-
-def get_similar_articles(
-    payload: SimilarArticlesRequest,
-) -> SimilarArticlesResponse:
-    if payload.slug:
-        return get_similar_articles_by_slug(payload.slug, payload.limit)
-
-    text = combine_text_fields(
-        payload.title,
-        payload.content,
-        payload.tags,
-        payload.keywords,
-    )
-
-    return get_similar_articles_by_text(text, payload.limit)

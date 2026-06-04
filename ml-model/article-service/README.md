@@ -6,15 +6,17 @@ Independent FastAPI service for Knowledge Hub article recommendations.
 
 ```bash
 pip install -r requirements.txt
-uvicorn app.main:app --host 0.0.0.0 --port 8002
+uvicorn app.main:app --reload --port 8002
 ```
 
 ## Endpoints
 
 - `GET /health`
-- `POST /similar-articles`
+- `POST /similar-articles/by-slug`
+- `POST /similar-articles/by-text`
 
-`/similar-articles` is currently a placeholder and returns an empty recommendation list until the recommender is trained.
+Recommendation endpoints use TF-IDF vectors and cosine similarity. If model
+artifacts are missing, they return an empty recommendation list.
 
 ## Train
 
