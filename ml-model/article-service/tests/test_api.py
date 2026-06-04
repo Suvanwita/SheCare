@@ -19,4 +19,4 @@ def test_similar_articles_placeholder() -> None:
     )
 
     assert response.recommendations == []
-    assert "placeholder" in response.message.lower()
+    assert "model files are missing" in response.message.lower()

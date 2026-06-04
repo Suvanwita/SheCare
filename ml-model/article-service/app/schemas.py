@@ -12,6 +12,7 @@ class HealthResponse(BaseModel):
 
 class SimilarArticlesRequest(BaseModel):
     article_id: Optional[str] = Field(default=None)
+    slug: Optional[str] = Field(default=None)
     title: Optional[str] = Field(default=None)
     content: Optional[str] = Field(default=None)
     tags: List[str] = Field(default_factory=list)
@@ -20,11 +21,13 @@ class SimilarArticlesRequest(BaseModel):
 
 
 class SimilarArticle(BaseModel):
-    article_id: Optional[str] = None
+    slug: str
     title: str
-    slug: Optional[str] = None
-    category: Optional[str] = None
-    score: float
+    category: str
+    summary: str
+    reading_time: Optional[float] = None
+    cover_image: Optional[str] = None
+    similarity_score: float
 
 
 class SimilarArticlesResponse(BaseModel):
