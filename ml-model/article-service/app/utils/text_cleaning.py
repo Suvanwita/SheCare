@@ -3,6 +3,7 @@ import re
 
 def normalize_text(value: str) -> str:
     text = str(value or "").strip().lower()
+    text = re.sub(r"[^a-z0-9\s+-]", " ", text)
     text = re.sub(r"\s+", " ", text)
     return text
 
