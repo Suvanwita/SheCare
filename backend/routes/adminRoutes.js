@@ -14,6 +14,7 @@ const {
   featureAdminArticle,
   getAdminArticleById,
   getAdminArticles,
+  getAdminAnalyticsOverview,
   getAdminAppointments,
   getAdminDoctorAppointments,
   getAdminDoctorById,
@@ -49,6 +50,7 @@ router.use(adminOnly);
 router.use(auditAdminWrites);
 
 router.get('/health', getAdminHealth);
+router.get('/analytics/overview', getAdminAnalyticsOverview);
 router.get('/doctors', getAdminDoctors);
 router.post('/doctors', createAdminDoctor);
 router.get('/doctors/:id', getAdminDoctorById);

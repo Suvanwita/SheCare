@@ -4,8 +4,11 @@ const mongoose = require('mongoose');
 const path = require('path');
 const Article = require('../models/Article');
 const Appointment = require('../models/Appointment');
+const Cycle = require('../models/Cycle');
 const Doctor = require('../models/Doctor');
+const HealthLog = require('../models/HealthLog');
 const Notification = require('../models/Notification');
+const PCOSAssessment = require('../models/PCOSAssessment');
 const Report = require('../models/Report');
 const Session = require('../models/Session');
 const User = require('../models/User');
@@ -1288,6 +1291,170 @@ const createAdminSystemNotification = asyncHandler(async (req, res) => {
   });
 });
 
+const formatAggregationRows = (rows, labelKey = '_id', valueKey = 'count') => {
+  return rows.map((row) => ({
+    name: row[labelKey] || 'Uncategorized',
+    value: row[valueKey] || 0
+  }));
+};
+
+const getAdminAnalyticsOverview = asyncHandler(async (req, res) => {
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  const [
+    totalUsers,
+    activeUsers,
+    doctors,
+    admins,
+    newUsersThisMonth,
+    totalAppointments,
+    pendingAppointments,
+    completedAppointments,
+    cancelledAppointments,
+    appointmentVolumeByMonth,
+    totalArticles,
+    publishedArticles,
+    featuredArticles,
+    articleTotals,
+    popularCategories,
+    totalReports,
+    reportsByCategory,
+    reportsByMimeType,
+    totalAssessments,
+    pcosRiskRows,
+    popularSymptoms,
+    cycleStats,
+    irregularCycleCount
+  ] = await Promise.all([
+    User.countDocuments({}),
+    User.countDocuments({ isActive: true }),
+    User.countDocuments({ role: 'doctor' }),
+    User.countDocuments({ role: 'admin' }),
+    User.countDocuments({ createdAt: { $gte: monthStart } }),
+    Appointment.countDocuments({}),
+    Appointment.countDocuments({ status: 'pending' }),
+    Appointment.countDocuments({ status: 'completed' }),
+    Appointment.countDocuments({ status: 'cancelled' }),
+    Appointment.aggregate([
+      {
+        $group: {
+          _id: {
+            year: { $year: '$date' },
+            month: { $month: '$date' }
+          },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { '_id.year': 1, '_id.month': 1 } },
+      { $limit: 12 }
+    ]),
+    Article.countDocuments({}),
+    Article.countDocuments({ isPublished: true }),
+    Article.countDocuments({ featured: true }),
+    Article.aggregate([
+      {
+        $group: {
+          _id: null,
+          totalArticleViews: { $sum: '$views' },
+          totalBookmarks: { $sum: '$bookmarksCount' }
+        }
+      }
+    ]),
+    Article.aggregate([
+      { $group: { _id: '$category', count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: 8 }
+    ]),
+    Report.countDocuments({}),
+    Report.aggregate([
+      { $group: { _id: '$category', count: { $sum: 1 } } },
+      { $sort: { count: -1 } }
+    ]),
+    Report.aggregate([
+      { $group: { _id: '$mimeType', count: { $sum: 1 } } },
+      { $sort: { count: -1 } }
+    ]),
+    PCOSAssessment.countDocuments({}),
+    PCOSAssessment.aggregate([
+      { $group: { _id: '$result.risk_level', count: { $sum: 1 } } }
+    ]),
+    HealthLog.aggregate([
+      { $unwind: '$symptoms' },
+      { $group: { _id: '$symptoms', count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: 8 }
+    ]),
+    Cycle.aggregate([
+      {
+        $group: {
+          _id: null,
+          averageCycleLength: { $avg: '$cycleLength' }
+        }
+      }
+    ]),
+    Cycle.countDocuments({ isIrregular: true })
+  ]);
+
+  const riskCounts = pcosRiskRows.reduce(
+    (counts, row) => ({
+      ...counts,
+      [row._id]: row.count
+    }),
+    {}
+  );
+
+  return res.status(200).json({
+    success: true,
+    message: 'Admin analytics overview fetched successfully',
+    data: {
+      users: {
+        totalUsers,
+        activeUsers,
+        doctors,
+        admins,
+        newUsersThisMonth
+      },
+      appointments: {
+        totalAppointments,
+        pendingAppointments,
+        completedAppointments,
+        cancelledAppointments,
+        appointmentVolumeByMonth: appointmentVolumeByMonth.map((row) => ({
+          month: `${row._id.year}-${String(row._id.month).padStart(2, '0')}`,
+          count: row.count
+        }))
+      },
+      knowledgeHub: {
+        totalArticles,
+        publishedArticles,
+        featuredArticles,
+        totalArticleViews: articleTotals[0]?.totalArticleViews || 0,
+        totalBookmarks: articleTotals[0]?.totalBookmarks || 0,
+        popularCategories: formatAggregationRows(popularCategories)
+      },
+      reports: {
+        totalReports,
+        reportsByCategory: formatAggregationRows(reportsByCategory),
+        reportsByMimeType: formatAggregationRows(reportsByMimeType)
+      },
+      pcos: {
+        totalAssessments,
+        lowRiskCount: riskCounts.Low || 0,
+        moderateRiskCount: riskCounts.Moderate || 0,
+        highRiskCount: riskCounts.High || 0
+      },
+      healthTrends: {
+        popularSymptoms: formatAggregationRows(popularSymptoms),
+        averageCycleLength: Number(
+          (cycleStats[0]?.averageCycleLength || 0).toFixed(1)
+        ),
+        irregularCycleCount
+      }
+    }
+  });
+});
+
 module.exports = {
   activateAdminUser,
   createAdminArticle,
@@ -1301,6 +1468,7 @@ module.exports = {
   featureAdminArticle,
   getAdminArticleById,
   getAdminArticles,
+  getAdminAnalyticsOverview,
   getAdminAppointments,
   getAdminDoctorAppointments,
   getAdminDoctorById,
