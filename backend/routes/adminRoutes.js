@@ -2,29 +2,38 @@ const express = require('express');
 const {
   activateAdminUser,
   createAdminArticle,
+  createAdminAnnouncement,
   createAdminDoctor,
+  createAdminSystemNotification,
   deleteAdminArticle,
   deleteAdminDoctor,
+  deleteAdminReport,
   deleteAdminUser,
   deactivateAdminUser,
   exportAdminArticlesCsv,
   featureAdminArticle,
   getAdminArticleById,
   getAdminArticles,
+  getAdminAppointments,
   getAdminDoctorAppointments,
   getAdminDoctorById,
   getAdminDoctors,
   getAdminHealth,
+  getAdminNotifications,
+  getAdminReportById,
+  getAdminReports,
   getAdminUserById,
   getAdminUserSessions,
   getAdminUsers,
   publishAdminArticle,
   refreshAdminArticleSearch,
+  resolveAdminAppointment,
   revokeAdminUserSessions,
   retrainAdminArticleRecommender,
   unfeatureAdminArticle,
   unpublishAdminArticle,
   unverifyAdminDoctor,
+  updateAdminAppointmentStatus,
   updateAdminArticle,
   updateAdminDoctor,
   updateAdminUserRole,
@@ -70,5 +79,17 @@ router.patch('/users/:id/deactivate', deactivateAdminUser);
 router.get('/users/:id/sessions', getAdminUserSessions);
 router.patch('/users/:id/revoke-sessions', revokeAdminUserSessions);
 router.delete('/users/:id', deleteAdminUser);
+
+router.get('/appointments', getAdminAppointments);
+router.patch('/appointments/:id/status', updateAdminAppointmentStatus);
+router.patch('/appointments/:id/resolve', resolveAdminAppointment);
+
+router.get('/reports', getAdminReports);
+router.get('/reports/:id', getAdminReportById);
+router.delete('/reports/:id', deleteAdminReport);
+
+router.post('/notifications/announcement', createAdminAnnouncement);
+router.post('/notifications/system', createAdminSystemNotification);
+router.get('/notifications', getAdminNotifications);
 
 module.exports = router;

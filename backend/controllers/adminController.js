@@ -5,6 +5,8 @@ const path = require('path');
 const Article = require('../models/Article');
 const Appointment = require('../models/Appointment');
 const Doctor = require('../models/Doctor');
+const Notification = require('../models/Notification');
+const Report = require('../models/Report');
 const Session = require('../models/Session');
 const User = require('../models/User');
 const { buildArticleTrie } = require('../utils/trie/articleTrie');
@@ -242,6 +244,98 @@ const mapArticleToCsvRow = (article) => {
   ]
     .map(escapeCsvValue)
     .join(',');
+};
+
+const buildDateRange = (startDate, endDate) => {
+  if (!startDate && !endDate) {
+    return undefined;
+  }
+
+  const range = {};
+
+  if (startDate) {
+    range.$gte = new Date(startDate);
+  }
+
+  if (endDate) {
+    range.$lte = new Date(endDate);
+  }
+
+  return range;
+};
+
+const removeLocalFile = async (filePath) => {
+  if (!filePath) {
+    return;
+  }
+
+  try {
+    await fs.unlink(path.resolve(filePath));
+  } catch (error) {
+    if (error.code !== 'ENOENT') {
+      throw error;
+    }
+  }
+};
+
+const validateAppointmentId = (id) => {
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw createError('Appointment not found', 404);
+  }
+};
+
+const validateReportId = (id) => {
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw createError('Report not found', 404);
+  }
+};
+
+const buildAppointmentFilters = (query) => {
+  const filters = {};
+
+  if (query.doctor) {
+    filters.doctor = query.doctor;
+  }
+
+  if (query.status && query.status !== 'all') {
+    filters.status = query.status;
+  }
+
+  if (query.appointmentType && query.appointmentType !== 'all') {
+    filters.appointmentType = query.appointmentType;
+  }
+
+  const dateRange = buildDateRange(query.startDate, query.endDate);
+
+  if (dateRange) {
+    filters.date = dateRange;
+  }
+
+  return filters;
+};
+
+const buildReportFilters = (query) => {
+  const filters = {};
+
+  if (query.user) {
+    filters.user = query.user;
+  }
+
+  if (query.category && query.category !== 'all') {
+    filters.category = query.category;
+  }
+
+  if (query.mimeType && query.mimeType !== 'all') {
+    filters.mimeType = query.mimeType;
+  }
+
+  const dateRange = buildDateRange(query.startDate, query.endDate);
+
+  if (dateRange) {
+    filters.createdAt = dateRange;
+  }
+
+  return filters;
 };
 
 const getAdminHealth = asyncHandler(async (req, res) => {
@@ -913,22 +1007,308 @@ const deleteAdminUser = asyncHandler(async (req, res) => {
   });
 });
 
+const getAdminAppointments = asyncHandler(async (req, res) => {
+  const page = Math.max(Number(req.query.page) || 1, 1);
+  const limit = Math.min(Math.max(Number(req.query.limit) || 10, 1), 100);
+  const skip = (page - 1) * limit;
+  const filters = buildAppointmentFilters(req.query);
+
+  const [appointments, total] = await Promise.all([
+    Appointment.find(filters)
+      .populate('user', 'fullName email phone')
+      .populate('doctor', 'name specialization location')
+      .sort({ date: -1, createdAt: -1 })
+      .skip(skip)
+      .limit(limit),
+    Appointment.countDocuments(filters)
+  ]);
+
+  return res.status(200).json({
+    success: true,
+    message: 'Admin appointments fetched successfully',
+    data: {
+      appointments,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    }
+  });
+});
+
+const updateAdminAppointmentStatus = asyncHandler(async (req, res) => {
+  validateAppointmentId(req.params.id);
+
+  const allowedStatuses = new Set(['pending', 'confirmed', 'completed', 'cancelled']);
+
+  if (!allowedStatuses.has(req.body.status)) {
+    throw createError('Invalid appointment status', 400);
+  }
+
+  const appointment = await Appointment.findByIdAndUpdate(
+    req.params.id,
+    { status: req.body.status },
+    {
+      new: true,
+      runValidators: true
+    }
+  )
+    .populate('user', 'fullName email phone')
+    .populate('doctor', 'name specialization location');
+
+  if (!appointment) {
+    throw createError('Appointment not found', 404);
+  }
+
+  return res.status(200).json({
+    success: true,
+    message: 'Appointment status updated successfully',
+    data: {
+      appointment
+    }
+  });
+});
+
+const resolveAdminAppointment = asyncHandler(async (req, res) => {
+  validateAppointmentId(req.params.id);
+
+  const note = req.body.note?.trim();
+
+  if (!note) {
+    throw createError('Resolution note is required', 400);
+  }
+
+  const appointment = await Appointment.findByIdAndUpdate(
+    req.params.id,
+    {
+      status: req.body.status || 'completed',
+      notes: note
+    },
+    {
+      new: true,
+      runValidators: true
+    }
+  )
+    .populate('user', 'fullName email phone')
+    .populate('doctor', 'name specialization location');
+
+  if (!appointment) {
+    throw createError('Appointment not found', 404);
+  }
+
+  return res.status(200).json({
+    success: true,
+    message: 'Appointment resolved successfully',
+    data: {
+      appointment
+    }
+  });
+});
+
+const getAdminReports = asyncHandler(async (req, res) => {
+  const page = Math.max(Number(req.query.page) || 1, 1);
+  const limit = Math.min(Math.max(Number(req.query.limit) || 10, 1), 100);
+  const skip = (page - 1) * limit;
+  const filters = buildReportFilters(req.query);
+
+  const [reports, total] = await Promise.all([
+    Report.find(filters)
+      .populate('user', 'fullName email phone')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit),
+    Report.countDocuments(filters)
+  ]);
+
+  return res.status(200).json({
+    success: true,
+    message: 'Admin reports fetched successfully',
+    data: {
+      reports,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    }
+  });
+});
+
+const getAdminReportById = asyncHandler(async (req, res) => {
+  validateReportId(req.params.id);
+
+  const report = await Report.findById(req.params.id).populate(
+    'user',
+    'fullName email phone'
+  );
+
+  if (!report) {
+    throw createError('Report not found', 404);
+  }
+
+  return res.status(200).json({
+    success: true,
+    message: 'Report fetched successfully',
+    data: {
+      report
+    }
+  });
+});
+
+const deleteAdminReport = asyncHandler(async (req, res) => {
+  validateReportId(req.params.id);
+
+  const report = await Report.findByIdAndDelete(req.params.id);
+
+  if (!report) {
+    throw createError('Report not found', 404);
+  }
+
+  await removeLocalFile(report.path);
+
+  return res.status(200).json({
+    success: true,
+    message: 'Report deleted successfully',
+    data: {
+      id: req.params.id
+    }
+  });
+});
+
+const getAdminNotifications = asyncHandler(async (req, res) => {
+  const page = Math.max(Number(req.query.page) || 1, 1);
+  const limit = Math.min(Math.max(Number(req.query.limit) || 10, 1), 100);
+  const skip = (page - 1) * limit;
+
+  const [notifications, total] = await Promise.all([
+    Notification.find({})
+      .populate('user', 'fullName email')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit),
+    Notification.countDocuments({})
+  ]);
+
+  return res.status(200).json({
+    success: true,
+    message: 'Admin notifications fetched successfully',
+    data: {
+      notifications,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    }
+  });
+});
+
+const createAdminAnnouncement = asyncHandler(async (req, res) => {
+  const { target, userIds = [], title, message } = req.body;
+
+  if (!title) {
+    throw createError('Announcement title is required', 400);
+  }
+
+  if (!['global', 'users'].includes(target)) {
+    throw createError('Announcement target must be global or users', 400);
+  }
+
+  let users = [];
+
+  if (target === 'global') {
+    users = await User.find({ isActive: true }).select('_id');
+  } else {
+    users = await User.find({
+      _id: { $in: userIds },
+      isActive: true
+    }).select('_id');
+  }
+
+  if (!users.length) {
+    throw createError('No active users found for announcement', 400);
+  }
+
+  const notifications = await Notification.insertMany(
+    users.map((user) => ({
+      user: user._id,
+      title,
+      message,
+      type: 'system',
+      metadata: {
+        source: 'admin-announcement',
+        target
+      }
+    }))
+  );
+
+  return res.status(201).json({
+    success: true,
+    message: 'Announcement notifications created successfully',
+    data: {
+      count: notifications.length
+    }
+  });
+});
+
+const createAdminSystemNotification = asyncHandler(async (req, res) => {
+  const { userId, title, message, metadata } = req.body;
+
+  if (!userId || !title) {
+    throw createError('User and title are required', 400);
+  }
+
+  const user = await User.findOne({ _id: userId, isActive: true }).select('_id');
+
+  if (!user) {
+    throw createError('Active user not found', 404);
+  }
+
+  const notification = await Notification.create({
+    user: user._id,
+    title,
+    message,
+    type: 'system',
+    metadata: {
+      ...(metadata || {}),
+      source: 'admin-system'
+    }
+  });
+
+  return res.status(201).json({
+    success: true,
+    message: 'System notification created successfully',
+    data: {
+      notification
+    }
+  });
+});
+
 module.exports = {
   activateAdminUser,
   createAdminArticle,
   createAdminDoctor,
   deleteAdminArticle,
   deleteAdminDoctor,
+  deleteAdminReport,
   deleteAdminUser,
   deactivateAdminUser,
   exportAdminArticlesCsv,
   featureAdminArticle,
   getAdminArticleById,
   getAdminArticles,
+  getAdminAppointments,
   getAdminDoctorAppointments,
   getAdminDoctorById,
   getAdminDoctors,
   getAdminHealth,
+  getAdminNotifications,
+  getAdminReportById,
+  getAdminReports,
   getAdminUserById,
   getAdminUserSessions,
   getAdminUsers,
@@ -936,9 +1316,13 @@ module.exports = {
   refreshAdminArticleSearch,
   revokeAdminUserSessions,
   retrainAdminArticleRecommender,
+  createAdminAnnouncement,
+  createAdminSystemNotification,
+  resolveAdminAppointment,
   unfeatureAdminArticle,
   unpublishAdminArticle,
   unverifyAdminDoctor,
+  updateAdminAppointmentStatus,
   updateAdminArticle,
   updateAdminDoctor,
   updateAdminUserRole,
