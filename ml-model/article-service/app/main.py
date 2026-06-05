@@ -11,10 +11,12 @@ from app.recommender import (
 )
 from app.schemas import (
     HealthResponse,
+    RetrainRecommenderResponse,
     SimilarArticlesBySlugRequest,
     SimilarArticlesByTextRequest,
     SimilarArticlesResponse,
 )
+from train_recommender import main as train_article_recommender
 
 settings = get_settings()
 
@@ -48,6 +50,27 @@ def health_check() -> HealthResponse:
         version=settings.app_version,
         environment=settings.environment,
     )
+
+
+@app.post("/retrain-recommender", response_model=RetrainRecommenderResponse)
+def retrain_recommender() -> RetrainRecommenderResponse:
+    try:
+        training_summary = train_article_recommender()
+        reloaded = load_recommender(force_reload=True)
+
+        return RetrainRecommenderResponse(
+            success=True,
+            message="Article recommender retrained successfully",
+            data={
+                **training_summary,
+                "reloaded": reloaded,
+            },
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Unable to retrain article recommender: {exc}",
+        ) from exc
 
 
 @app.post(

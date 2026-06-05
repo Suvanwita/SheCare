@@ -8,9 +8,10 @@ from app.utils.text_cleaning import combine_text_fields
 from sklearn.metrics.pairwise import cosine_similarity
 
 
-VECTORIZER_PATH = Path("model/tfidf_vectorizer.pkl")
-ARTICLE_VECTORS_PATH = Path("model/article_vectors.pkl")
-METADATA_PATH = Path("model/articles_metadata.json")
+BASE_DIR = Path(__file__).resolve().parents[1]
+VECTORIZER_PATH = BASE_DIR / "model/tfidf_vectorizer.pkl"
+ARTICLE_VECTORS_PATH = BASE_DIR / "model/article_vectors.pkl"
+METADATA_PATH = BASE_DIR / "model/articles_metadata.json"
 
 _vectorizer = None
 _article_vectors = None
@@ -34,12 +35,29 @@ def _missing_artifact_message() -> str:
     )
 
 
-def load_recommender() -> bool:
+def unload_recommender() -> None:
     global _article_vectors
     global _articles_metadata
     global _is_loaded
     global _load_error
     global _vectorizer
+
+    _vectorizer = None
+    _article_vectors = None
+    _articles_metadata = []
+    _load_error = None
+    _is_loaded = False
+
+
+def load_recommender(force_reload: bool = False) -> bool:
+    global _article_vectors
+    global _articles_metadata
+    global _is_loaded
+    global _load_error
+    global _vectorizer
+
+    if force_reload:
+        unload_recommender()
 
     if _is_loaded:
         return True

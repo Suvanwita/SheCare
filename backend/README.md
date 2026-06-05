@@ -28,6 +28,7 @@ REFRESH_TOKEN_EXPIRES_IN=7d
 ```bash
 npm install
 npm run dev
+npm test
 npm run seed:doctors
 node scripts/seedArticles.js
 ```

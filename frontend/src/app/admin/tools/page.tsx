@@ -113,6 +113,7 @@ export default function AdminToolsPage() {
   const fetchStatus = useAdminToolsStore((state) => state.fetchStatus);
   const runTool = useAdminToolsStore((state) => state.runTool);
   const [pendingTool, setPendingTool] = useState<ToolDefinition | null>(null);
+  const [confirmationText, setConfirmationText] = useState("");
 
   useEffect(() => {
     fetchStatus();
@@ -121,6 +122,7 @@ export default function AdminToolsPage() {
   const handleRun = (tool: ToolDefinition) => {
     if (tool.warning) {
       setPendingTool(tool);
+      setConfirmationText("");
       return;
     }
 
@@ -134,6 +136,7 @@ export default function AdminToolsPage() {
 
     runTool(pendingTool.action);
     setPendingTool(null);
+    setConfirmationText("");
   };
 
   return (
@@ -354,12 +357,24 @@ export default function AdminToolsPage() {
                 <p className="mt-2 text-sm leading-6 text-muted-foreground">
                   {pendingTool.warning}
                 </p>
+                <label className="mt-4 block text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                  Type SEED to continue
+                </label>
+                <input
+                  value={confirmationText}
+                  onChange={(event) => setConfirmationText(event.target.value)}
+                  className="mt-2 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm font-semibold text-foreground outline-none transition focus:border-primary"
+                  autoFocus
+                />
               </div>
             </div>
             <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
               <button
                 type="button"
-                onClick={() => setPendingTool(null)}
+                onClick={() => {
+                  setPendingTool(null);
+                  setConfirmationText("");
+                }}
                 className="rounded-lg border border-border px-4 py-2 text-sm font-bold text-foreground transition hover:bg-muted"
               >
                 Cancel
@@ -367,7 +382,8 @@ export default function AdminToolsPage() {
               <button
                 type="button"
                 onClick={confirmPendingTool}
-                className="rounded-lg bg-primary px-4 py-2 text-sm font-bold text-primary-foreground transition hover:bg-primary/90"
+                disabled={confirmationText !== "SEED"}
+                className="rounded-lg bg-primary px-4 py-2 text-sm font-bold text-primary-foreground transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Run Anyway
               </button>

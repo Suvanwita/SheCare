@@ -1,12 +1,18 @@
+"use client";
+
+import { useEffect } from "react";
 import Link from "next/link";
 import {
   BarChart3,
   CalendarCheck,
+  FileText,
   Newspaper,
+  Settings2,
   Stethoscope,
   Users,
 } from "lucide-react";
 import AdminStatCard from "../../components/admin/AdminStatCard";
+import { useAdminAnalyticsStore } from "../../store/adminAnalyticsStore";
 
 const quickLinks = [
   {
@@ -25,38 +31,73 @@ const quickLinks = [
     description: "Review user roles, account status, and access controls.",
   },
   {
-    title: "View Analytics",
-    href: "/admin/analytics",
-    description: "Track platform health, usage trends, and content performance.",
+    title: "Run Tools",
+    href: "/admin/tools",
+    description: "Seed data, export article CSVs, refresh Trie search, and retrain ML.",
   },
 ];
 
 export default function AdminOverviewPage() {
+  const overview = useAdminAnalyticsStore((state) => state.overview);
+  const isLoading = useAdminAnalyticsStore((state) => state.isLoading);
+  const error = useAdminAnalyticsStore((state) => state.error);
+  const fetchOverview = useAdminAnalyticsStore((state) => state.fetchOverview);
+
+  useEffect(() => {
+    fetchOverview();
+  }, [fetchOverview]);
+
   return (
     <>
+      {error ? (
+        <div className="rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm font-semibold text-destructive">
+          {error}
+        </div>
+      ) : null}
+
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <AdminStatCard
           title="Doctors"
-          value="--"
-          description="Provider records ready for admin management."
+          value={isLoading || !overview ? "--" : String(overview.users.doctors)}
+          description={
+            overview
+              ? `${overview.users.admins} admins · ${overview.users.activeUsers} active users`
+              : "Provider records ready for admin management."
+          }
           icon={Stethoscope}
         />
         <AdminStatCard
           title="Articles"
-          value="--"
-          description="Knowledge Hub content and publishing workflow."
+          value={isLoading || !overview ? "--" : String(overview.knowledgeHub.totalArticles)}
+          description={
+            overview
+              ? `${overview.knowledgeHub.publishedArticles} published · ${overview.knowledgeHub.featuredArticles} featured`
+              : "Knowledge Hub content and publishing workflow."
+          }
           icon={Newspaper}
         />
         <AdminStatCard
           title="Users"
-          value="--"
-          description="Accounts, roles, and access status."
+          value={isLoading || !overview ? "--" : String(overview.users.totalUsers)}
+          description={
+            overview
+              ? `${overview.users.newUsersThisMonth} new this month`
+              : "Accounts, roles, and access status."
+          }
           icon={Users}
         />
         <AdminStatCard
           title="Appointments"
-          value="--"
-          description="Consultation volume and status monitoring."
+          value={
+            isLoading || !overview
+              ? "--"
+              : String(overview.appointments.totalAppointments)
+          }
+          description={
+            overview
+              ? `${overview.appointments.pendingAppointments} pending · ${overview.appointments.completedAppointments} completed`
+              : "Consultation volume and status monitoring."
+          }
           icon={CalendarCheck}
         />
       </section>
@@ -93,15 +134,34 @@ export default function AdminOverviewPage() {
 
         <div className="glass-card rounded-lg p-5">
           <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-            Foundation Status
+            Operations Snapshot
           </p>
           <h2 className="mt-2 text-2xl font-black tracking-tight text-foreground">
-            Secure admin shell
+            Live admin overview
           </h2>
-          <p className="mt-3 text-sm leading-6 text-muted-foreground">
-            Route guard, navigation, logout, theme controls, and placeholder modules
-            are ready. Data wiring can now be added module by module.
-          </p>
+          {overview ? (
+            <div className="mt-4 space-y-3 text-sm text-muted-foreground">
+              <p className="flex items-center gap-2">
+                <FileText className="h-4 w-4 text-primary" />
+                {overview.reports.totalReports} uploaded report records.
+              </p>
+              <p className="flex items-center gap-2">
+                <Newspaper className="h-4 w-4 text-primary" />
+                {overview.knowledgeHub.totalArticleViews} article views and{" "}
+                {overview.knowledgeHub.totalBookmarks} bookmarks.
+              </p>
+              <p className="flex items-center gap-2">
+                <Settings2 className="h-4 w-4 text-primary" />
+                {overview.pcos.totalAssessments} PCOS assessments tracked.
+              </p>
+            </div>
+          ) : (
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">
+              {isLoading
+                ? "Loading analytics summary..."
+                : "Analytics summary will appear here once backend data is available."}
+            </p>
+          )}
         </div>
       </section>
     </>

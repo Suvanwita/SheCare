@@ -8,8 +8,9 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
 
-DATA_PATH = Path("data/articles.csv")
-MODEL_DIR = Path("model")
+BASE_DIR = Path(__file__).resolve().parent
+DATA_PATH = BASE_DIR / "data/articles.csv"
+MODEL_DIR = BASE_DIR / "model"
 VECTORIZER_PATH = MODEL_DIR / "tfidf_vectorizer.pkl"
 ARTICLE_VECTORS_PATH = MODEL_DIR / "article_vectors.pkl"
 METADATA_PATH = MODEL_DIR / "articles_metadata.json"
@@ -148,13 +149,21 @@ def save_artifacts(
         json.dump(metadata, metadata_file, indent=2, ensure_ascii=False)
 
 
-def main() -> None:
+def main() -> dict:
     log("Starting content-based article recommendation training")
     articles = load_articles()
     prepared_articles = prepare_articles(articles)
     vectorizer, article_vectors = train_tfidf(prepared_articles)
     save_artifacts(prepared_articles, vectorizer, article_vectors)
     log("Training pipeline finished successfully")
+
+    return {
+        "article_count": len(prepared_articles),
+        "feature_count": int(article_vectors.shape[1]),
+        "vectorizer_path": str(VECTORIZER_PATH),
+        "article_vectors_path": str(ARTICLE_VECTORS_PATH),
+        "metadata_path": str(METADATA_PATH),
+    }
 
 
 if __name__ == "__main__":

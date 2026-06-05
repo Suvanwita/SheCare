@@ -34,3 +34,9 @@ class SimilarArticlesResponse(BaseModel):
     success: bool
     source: str
     recommendations: List[SimilarArticle]
+
+
+class RetrainRecommenderResponse(BaseModel):
+    success: bool
+    message: str
+    data: dict = Field(default_factory=dict)

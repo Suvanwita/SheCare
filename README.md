@@ -150,3 +150,14 @@ Admin Tools:
 - `POST /api/admin/tools/refresh-article-trie`: rebuild backend Trie suggestions.
 - `POST /api/admin/tools/retrain-article-recommender`: call article-service retraining if available.
 - `GET /api/admin/tools/status`: check MongoDB counts and ML service health/configuration.
+
+The article-service exposes `POST /retrain-recommender`; Admin Tools uses it
+after exporting `articles.csv` so TF-IDF recommendations can reload without a
+service restart.
+
+Backend admin security tests can be run with:
+
+```bash
+cd backend
+npm test
+```
