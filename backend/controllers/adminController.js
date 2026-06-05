@@ -12,6 +12,7 @@ const PCOSAssessment = require('../models/PCOSAssessment');
 const Report = require('../models/Report');
 const Session = require('../models/Session');
 const User = require('../models/User');
+const AuditLog = require('../models/AuditLog');
 const { seedArticles } = require('../scripts/seedArticles');
 const { seedDoctors } = require('../scripts/seedDoctors');
 const { buildArticleTrie } = require('../utils/trie/articleTrie');
@@ -208,6 +209,42 @@ const buildUserFilters = (query) => {
   }
 
   return filters;
+};
+
+const buildAuditLogFilters = (query) => {
+  const filters = {};
+
+  if (query.action && query.action !== 'all') {
+    filters.action = query.action;
+  }
+
+  if (query.entity && query.entity !== 'all') {
+    filters.entity = query.entity;
+  }
+
+  if (query.user && mongoose.Types.ObjectId.isValid(query.user)) {
+    filters.user = query.user;
+  }
+
+  const dateRange = buildDateRange(query.startDate, query.endDate);
+
+  if (dateRange) {
+    filters.createdAt = dateRange;
+  }
+
+  return filters;
+};
+
+const ensureSeedToolsAllowed = () => {
+  if (
+    process.env.NODE_ENV === 'production' &&
+    process.env.ALLOW_ADMIN_SEED_TOOLS !== 'true'
+  ) {
+    throw createError(
+      'Seed tools are disabled in production. Set ALLOW_ADMIN_SEED_TOOLS=true to enable them deliberately.',
+      403
+    );
+  }
 };
 
 const rebuildArticleTrieSafely = () => {
@@ -1488,7 +1525,39 @@ const getAdminAnalyticsOverview = asyncHandler(async (req, res) => {
   });
 });
 
+const getAdminAuditLogs = asyncHandler(async (req, res) => {
+  const page = Math.max(Number(req.query.page) || 1, 1);
+  const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 100);
+  const skip = (page - 1) * limit;
+  const filters = buildAuditLogFilters(req.query);
+
+  const [auditLogs, total] = await Promise.all([
+    AuditLog.find(filters)
+      .populate('user', 'fullName email role')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit),
+    AuditLog.countDocuments(filters)
+  ]);
+
+  return res.status(200).json({
+    success: true,
+    message: 'Admin audit logs fetched successfully',
+    data: {
+      auditLogs,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    }
+  });
+});
+
 const seedAdminDoctorsTool = asyncHandler(async (req, res) => {
+  ensureSeedToolsAllowed();
+
   const data = await seedDoctors({ manageConnection: false });
 
   return res.status(200).json({
@@ -1499,6 +1568,8 @@ const seedAdminDoctorsTool = asyncHandler(async (req, res) => {
 });
 
 const seedAdminArticlesTool = asyncHandler(async (req, res) => {
+  ensureSeedToolsAllowed();
+
   const data = await seedArticles({ manageConnection: false });
 
   return res.status(200).json({
@@ -1599,6 +1670,7 @@ module.exports = {
   getAdminArticles,
   getAdminAnalyticsOverview,
   getAdminAppointments,
+  getAdminAuditLogs,
   getAdminDoctorAppointments,
   getAdminDoctorById,
   getAdminDoctors,

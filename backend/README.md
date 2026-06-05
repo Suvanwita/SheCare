@@ -14,6 +14,7 @@ JWT_REFRESH_SECRET=your_refresh_secret
 CLIENT_URL=http://localhost:3000
 ML_SERVICE_URL=http://localhost:8000
 ARTICLE_ML_SERVICE_URL=http://localhost:8002
+ALLOW_ADMIN_SEED_TOOLS=false
 ```
 
 Optional auth expiry vars default in code:
@@ -92,6 +93,7 @@ node scripts/seedArticles.js
 - `GET /api/articles/:slug/similar`
 - `GET /api/admin/health`
 - `GET /api/admin/analytics/overview`
+- `GET /api/admin/audit-logs`
 - `GET /api/admin/doctors`
 - `POST /api/admin/doctors`
 - `GET /api/admin/doctors/:id`
@@ -157,6 +159,16 @@ All `/api/admin/*` routes require a valid access token and `role: "admin"`.
 - Refresh article Trie: rebuilds backend autocomplete suggestions.
 - Retrain article recommender: calls `ARTICLE_ML_SERVICE_URL/retrain-recommender` when available and otherwise returns a clear manual training message.
 - Status: reports MongoDB connection state, article/doctor counts, configured ML URLs, and article-service health.
+
+Seed tools are disabled when `NODE_ENV=production` unless
+`ALLOW_ADMIN_SEED_TOOLS=true` is set. Admin tool write routes also have a
+lightweight per-admin rate limit.
+
+## Admin Audit Logs
+
+Successful admin write actions are recorded in `AuditLog` and can be reviewed
+through `GET /api/admin/audit-logs`. Supported filters are `action`, `entity`,
+`user`, `startDate`, `endDate`, `page`, and `limit`.
 
 ## Upload Notes
 

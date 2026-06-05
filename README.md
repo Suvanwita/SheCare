@@ -85,6 +85,7 @@ JWT_REFRESH_SECRET=your_refresh_secret
 CLIENT_URL=http://localhost:3000
 ML_SERVICE_URL=http://localhost:8000
 ARTICLE_ML_SERVICE_URL=http://localhost:8002
+ALLOW_ADMIN_SEED_TOOLS=false
 ```
 
 Frontend `frontend/.env.local`:
@@ -141,6 +142,7 @@ Admin API route groups:
 - `/api/admin/notifications/*`
 - `GET /api/admin/analytics/overview`
 - `/api/admin/tools/*`
+- `GET /api/admin/audit-logs`
 
 Admin Tools:
 
@@ -150,6 +152,15 @@ Admin Tools:
 - `POST /api/admin/tools/refresh-article-trie`: rebuild backend Trie suggestions.
 - `POST /api/admin/tools/retrain-article-recommender`: call article-service retraining if available.
 - `GET /api/admin/tools/status`: check MongoDB counts and ML service health/configuration.
+
+Admin seed tools are blocked when `NODE_ENV=production` unless
+`ALLOW_ADMIN_SEED_TOOLS=true` is set deliberately. Admin tool write endpoints
+also have a lightweight per-admin rate limit.
+
+Audit Logs:
+
+- `GET /api/admin/audit-logs`: read successful admin write actions with filters
+  for action, entity, user id, and date range.
 
 The article-service exposes `POST /retrain-recommender`; Admin Tools uses it
 after exporting `articles.csv` so TF-IDF recommendations can reload without a

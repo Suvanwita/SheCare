@@ -17,6 +17,7 @@ const {
   getAdminArticles,
   getAdminAnalyticsOverview,
   getAdminAppointments,
+  getAdminAuditLogs,
   getAdminDoctorAppointments,
   getAdminDoctorById,
   getAdminDoctors,
@@ -46,10 +47,15 @@ const {
   updateAdminUserRole,
   verifyAdminDoctor
 } = require('../controllers/adminController');
-const { adminOnly, auditAdminWrites } = require('../middleware/adminMiddleware');
+const {
+  adminOnly,
+  auditAdminWrites,
+  createAdminToolRateLimit
+} = require('../middleware/adminMiddleware');
 const { protect } = require('../middleware/authMiddleware');
 
 const router = express.Router();
+const adminToolRateLimit = createAdminToolRateLimit();
 
 router.use(protect);
 router.use(adminOnly);
@@ -57,13 +63,18 @@ router.use(auditAdminWrites);
 
 router.get('/health', getAdminHealth);
 router.get('/analytics/overview', getAdminAnalyticsOverview);
+router.get('/audit-logs', getAdminAuditLogs);
 
 router.get('/tools/status', getAdminToolsStatus);
-router.post('/tools/seed-doctors', seedAdminDoctorsTool);
-router.post('/tools/seed-articles', seedAdminArticlesTool);
-router.post('/tools/export-articles-csv', exportAdminToolsArticlesCsv);
-router.post('/tools/refresh-article-trie', refreshAdminToolsArticleTrie);
-router.post('/tools/retrain-article-recommender', retrainAdminToolsArticleRecommender);
+router.post('/tools/seed-doctors', adminToolRateLimit, seedAdminDoctorsTool);
+router.post('/tools/seed-articles', adminToolRateLimit, seedAdminArticlesTool);
+router.post('/tools/export-articles-csv', adminToolRateLimit, exportAdminToolsArticlesCsv);
+router.post('/tools/refresh-article-trie', adminToolRateLimit, refreshAdminToolsArticleTrie);
+router.post(
+  '/tools/retrain-article-recommender',
+  adminToolRateLimit,
+  retrainAdminToolsArticleRecommender
+);
 
 router.get('/doctors', getAdminDoctors);
 router.post('/doctors', createAdminDoctor);

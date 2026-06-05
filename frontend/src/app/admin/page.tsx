@@ -35,6 +35,11 @@ const quickLinks = [
     href: "/admin/tools",
     description: "Seed data, export article CSVs, refresh Trie search, and retrain ML.",
   },
+  {
+    title: "Review Audit Logs",
+    href: "/admin/audit-logs",
+    description: "See successful admin write actions and operational history.",
+  },
 ];
 
 export default function AdminOverviewPage() {

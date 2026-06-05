@@ -5,7 +5,11 @@ const path = require('node:path');
 const test = require('node:test');
 
 const AuditLog = require('../models/AuditLog');
-const { adminOnly, auditAdminWrites } = require('../middleware/adminMiddleware');
+const {
+  adminOnly,
+  auditAdminWrites,
+  createAdminToolRateLimit
+} = require('../middleware/adminMiddleware');
 const { protect } = require('../middleware/authMiddleware');
 const adminRoutes = require('../routes/adminRoutes');
 
@@ -107,7 +111,7 @@ test('auditAdminWrites records successful admin write actions', async () => {
 
     assert.equal(payload.user, 'admin-user-id');
     assert.equal(payload.action, 'admin:patch');
-    assert.equal(payload.entity, 'admin');
+    assert.equal(payload.entity, 'admin/users');
     assert.equal(payload.metadata.path, '/api/admin/users/123/role');
   } finally {
     AuditLog.create = originalCreate;
@@ -124,4 +128,36 @@ test('admin user controller keeps self-protection guards in place', () => {
     /You cannot deactivate your own account/
   );
   assert.match(adminControllerSource, /You cannot delete your own account/);
+});
+
+test('admin tool rate limiter blocks excessive tool requests', () => {
+  const rateLimit = createAdminToolRateLimit({ windowMs: 60 * 1000, max: 2 });
+  const request = {
+    user: { _id: 'admin-user-id' },
+    path: '/tools/refresh-article-trie',
+    ip: '127.0.0.1'
+  };
+  const response = {
+    setHeader: () => {}
+  };
+  const errors = [];
+
+  rateLimit(request, response, (error) => {
+    if (error) {
+      errors.push(error);
+    }
+  });
+  rateLimit(request, response, (error) => {
+    if (error) {
+      errors.push(error);
+    }
+  });
+  rateLimit(request, response, (error) => {
+    if (error) {
+      errors.push(error);
+    }
+  });
+
+  assert.equal(errors.length, 1);
+  assert.equal(errors[0].statusCode, 429);
 });

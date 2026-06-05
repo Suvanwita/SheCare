@@ -7,6 +7,7 @@ import {
   Bell,
   BriefcaseMedical,
   CalendarCheck,
+  ClipboardList,
   FileText,
   LayoutDashboard,
   Newspaper,
@@ -27,6 +28,7 @@ const ADMIN_NAVIGATION = [
   { title: "Notifications", href: "/admin/notifications", icon: Bell },
   { title: "Analytics", href: "/admin/analytics", icon: BarChart3 },
   { title: "Tools", href: "/admin/tools", icon: Settings2 },
+  { title: "Audit Logs", href: "/admin/audit-logs", icon: ClipboardList },
 ];
 
 interface AdminSidebarProps {
