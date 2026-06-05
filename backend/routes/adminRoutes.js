@@ -1,9 +1,12 @@
 const express = require('express');
 const {
+  activateAdminUser,
   createAdminArticle,
   createAdminDoctor,
   deleteAdminArticle,
   deleteAdminDoctor,
+  deleteAdminUser,
+  deactivateAdminUser,
   exportAdminArticlesCsv,
   featureAdminArticle,
   getAdminArticleById,
@@ -12,14 +15,19 @@ const {
   getAdminDoctorById,
   getAdminDoctors,
   getAdminHealth,
+  getAdminUserById,
+  getAdminUserSessions,
+  getAdminUsers,
   publishAdminArticle,
   refreshAdminArticleSearch,
+  revokeAdminUserSessions,
   retrainAdminArticleRecommender,
   unfeatureAdminArticle,
   unpublishAdminArticle,
   unverifyAdminDoctor,
   updateAdminArticle,
   updateAdminDoctor,
+  updateAdminUserRole,
   verifyAdminDoctor
 } = require('../controllers/adminController');
 const { adminOnly, auditAdminWrites } = require('../middleware/adminMiddleware');
@@ -53,5 +61,14 @@ router.patch('/articles/:id/publish', publishAdminArticle);
 router.patch('/articles/:id/unpublish', unpublishAdminArticle);
 router.patch('/articles/:id/feature', featureAdminArticle);
 router.patch('/articles/:id/unfeature', unfeatureAdminArticle);
+
+router.get('/users', getAdminUsers);
+router.get('/users/:id', getAdminUserById);
+router.patch('/users/:id/role', updateAdminUserRole);
+router.patch('/users/:id/activate', activateAdminUser);
+router.patch('/users/:id/deactivate', deactivateAdminUser);
+router.get('/users/:id/sessions', getAdminUserSessions);
+router.patch('/users/:id/revoke-sessions', revokeAdminUserSessions);
+router.delete('/users/:id', deleteAdminUser);
 
 module.exports = router;

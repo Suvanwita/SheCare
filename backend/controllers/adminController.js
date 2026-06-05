@@ -5,6 +5,8 @@ const path = require('path');
 const Article = require('../models/Article');
 const Appointment = require('../models/Appointment');
 const Doctor = require('../models/Doctor');
+const Session = require('../models/Session');
+const User = require('../models/User');
 const { buildArticleTrie } = require('../utils/trie/articleTrie');
 
 const allowedDoctorFields = [
@@ -33,6 +35,8 @@ const allowedArticleFields = [
   'featured',
   'isPublished'
 ];
+
+const allowedRoles = new Set(['user', 'doctor', 'admin']);
 
 const articleCsvPath = path.resolve(
   __dirname,
@@ -84,6 +88,14 @@ const validateArticleId = (id) => {
     throw createError('Article not found', 404);
   }
 };
+
+const validateUserId = (id) => {
+  if (!mongoose.Types.ObjectId.isValid(id)) {
+    throw createError('User not found', 404);
+  }
+};
+
+const isSelf = (req, id) => String(req.user._id) === String(id);
 
 const ensureUniqueArticleSlug = async (slug, articleId) => {
   const existingArticle = await Article.findOne({
@@ -165,6 +177,27 @@ const buildArticleFilters = (query) => {
 
   if (featured !== undefined) {
     filters.featured = featured;
+  }
+
+  return filters;
+};
+
+const buildUserFilters = (query) => {
+  const filters = {};
+
+  if (query.search) {
+    const searchRegex = new RegExp(query.search.trim(), 'i');
+    filters.$or = [{ fullName: searchRegex }, { email: searchRegex }];
+  }
+
+  if (query.role && query.role !== 'all') {
+    filters.role = query.role;
+  }
+
+  const isActive = parseBoolean(query.isActive);
+
+  if (isActive !== undefined) {
+    filters.isActive = isActive;
   }
 
   return filters;
@@ -664,11 +697,230 @@ const retrainAdminArticleRecommender = asyncHandler(async (req, res) => {
   }
 });
 
+const getAdminUsers = asyncHandler(async (req, res) => {
+  const page = Math.max(Number(req.query.page) || 1, 1);
+  const limit = Math.min(Math.max(Number(req.query.limit) || 10, 1), 100);
+  const skip = (page - 1) * limit;
+  const filters = buildUserFilters(req.query);
+
+  const [users, total] = await Promise.all([
+    User.find(filters)
+      .select('-password')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit),
+    User.countDocuments(filters)
+  ]);
+
+  return res.status(200).json({
+    success: true,
+    message: 'Admin users fetched successfully',
+    data: {
+      users,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    }
+  });
+});
+
+const getAdminUserById = asyncHandler(async (req, res) => {
+  validateUserId(req.params.id);
+
+  const user = await User.findById(req.params.id).select('-password');
+
+  if (!user) {
+    throw createError('User not found', 404);
+  }
+
+  return res.status(200).json({
+    success: true,
+    message: 'User fetched successfully',
+    data: {
+      user
+    }
+  });
+});
+
+const updateAdminUserRole = asyncHandler(async (req, res) => {
+  validateUserId(req.params.id);
+
+  const { role } = req.body;
+
+  if (!allowedRoles.has(role)) {
+    throw createError('Invalid role', 400);
+  }
+
+  if (isSelf(req, req.params.id) && role !== 'admin') {
+    throw createError('You cannot remove your own admin role', 400);
+  }
+
+  const user = await User.findByIdAndUpdate(
+    req.params.id,
+    { role },
+    {
+      new: true,
+      runValidators: true
+    }
+  ).select('-password');
+
+  if (!user) {
+    throw createError('User not found', 404);
+  }
+
+  return res.status(200).json({
+    success: true,
+    message: 'User role updated successfully',
+    data: {
+      user
+    }
+  });
+});
+
+const activateAdminUser = asyncHandler(async (req, res) => {
+  validateUserId(req.params.id);
+
+  const user = await User.findByIdAndUpdate(
+    req.params.id,
+    { isActive: true },
+    {
+      new: true,
+      runValidators: true
+    }
+  ).select('-password');
+
+  if (!user) {
+    throw createError('User not found', 404);
+  }
+
+  return res.status(200).json({
+    success: true,
+    message: 'User activated successfully',
+    data: {
+      user
+    }
+  });
+});
+
+const deactivateAdminUser = asyncHandler(async (req, res) => {
+  validateUserId(req.params.id);
+
+  if (isSelf(req, req.params.id)) {
+    throw createError('You cannot deactivate your own account', 400);
+  }
+
+  const user = await User.findByIdAndUpdate(
+    req.params.id,
+    { isActive: false },
+    {
+      new: true,
+      runValidators: true
+    }
+  ).select('-password');
+
+  if (!user) {
+    throw createError('User not found', 404);
+  }
+
+  await Session.updateMany({ user: req.params.id }, { isRevoked: true });
+
+  return res.status(200).json({
+    success: true,
+    message: 'User deactivated successfully',
+    data: {
+      user
+    }
+  });
+});
+
+const getAdminUserSessions = asyncHandler(async (req, res) => {
+  validateUserId(req.params.id);
+
+  const user = await User.findById(req.params.id).select('_id fullName email role');
+
+  if (!user) {
+    throw createError('User not found', 404);
+  }
+
+  const sessions = await Session.find({ user: req.params.id }).sort({
+    createdAt: -1
+  });
+
+  return res.status(200).json({
+    success: true,
+    message: 'User sessions fetched successfully',
+    data: {
+      user,
+      sessions
+    }
+  });
+});
+
+const revokeAdminUserSessions = asyncHandler(async (req, res) => {
+  validateUserId(req.params.id);
+
+  const user = await User.findById(req.params.id).select('_id fullName email role');
+
+  if (!user) {
+    throw createError('User not found', 404);
+  }
+
+  const result = await Session.updateMany(
+    { user: req.params.id, isRevoked: false },
+    { isRevoked: true }
+  );
+
+  return res.status(200).json({
+    success: true,
+    message: 'User sessions revoked successfully',
+    data: {
+      modifiedCount: result.modifiedCount || 0
+    }
+  });
+});
+
+const deleteAdminUser = asyncHandler(async (req, res) => {
+  validateUserId(req.params.id);
+
+  if (isSelf(req, req.params.id)) {
+    throw createError('You cannot delete your own account', 400);
+  }
+
+  const user = await User.findByIdAndUpdate(
+    req.params.id,
+    { isActive: false },
+    {
+      new: true,
+      runValidators: true
+    }
+  ).select('-password');
+
+  if (!user) {
+    throw createError('User not found', 404);
+  }
+
+  await Session.updateMany({ user: req.params.id }, { isRevoked: true });
+
+  return res.status(200).json({
+    success: true,
+    message: 'User soft deleted successfully',
+    data: {
+      user
+    }
+  });
+});
+
 module.exports = {
+  activateAdminUser,
   createAdminArticle,
   createAdminDoctor,
   deleteAdminArticle,
   deleteAdminDoctor,
+  deleteAdminUser,
+  deactivateAdminUser,
   exportAdminArticlesCsv,
   featureAdminArticle,
   getAdminArticleById,
@@ -677,13 +929,18 @@ module.exports = {
   getAdminDoctorById,
   getAdminDoctors,
   getAdminHealth,
+  getAdminUserById,
+  getAdminUserSessions,
+  getAdminUsers,
   publishAdminArticle,
   refreshAdminArticleSearch,
+  revokeAdminUserSessions,
   retrainAdminArticleRecommender,
   unfeatureAdminArticle,
   unpublishAdminArticle,
   unverifyAdminDoctor,
   updateAdminArticle,
   updateAdminDoctor,
+  updateAdminUserRole,
   verifyAdminDoctor
 };
