@@ -11,6 +11,7 @@ const {
   deleteAdminUser,
   deactivateAdminUser,
   exportAdminArticlesCsv,
+  exportAdminToolsArticlesCsv,
   featureAdminArticle,
   getAdminArticleById,
   getAdminArticles,
@@ -23,14 +24,19 @@ const {
   getAdminNotifications,
   getAdminReportById,
   getAdminReports,
+  getAdminToolsStatus,
   getAdminUserById,
   getAdminUserSessions,
   getAdminUsers,
   publishAdminArticle,
   refreshAdminArticleSearch,
+  refreshAdminToolsArticleTrie,
   resolveAdminAppointment,
   revokeAdminUserSessions,
   retrainAdminArticleRecommender,
+  retrainAdminToolsArticleRecommender,
+  seedAdminArticlesTool,
+  seedAdminDoctorsTool,
   unfeatureAdminArticle,
   unpublishAdminArticle,
   unverifyAdminDoctor,
@@ -51,6 +57,14 @@ router.use(auditAdminWrites);
 
 router.get('/health', getAdminHealth);
 router.get('/analytics/overview', getAdminAnalyticsOverview);
+
+router.get('/tools/status', getAdminToolsStatus);
+router.post('/tools/seed-doctors', seedAdminDoctorsTool);
+router.post('/tools/seed-articles', seedAdminArticlesTool);
+router.post('/tools/export-articles-csv', exportAdminToolsArticlesCsv);
+router.post('/tools/refresh-article-trie', refreshAdminToolsArticleTrie);
+router.post('/tools/retrain-article-recommender', retrainAdminToolsArticleRecommender);
+
 router.get('/doctors', getAdminDoctors);
 router.post('/doctors', createAdminDoctor);
 router.get('/doctors/:id', getAdminDoctorById);

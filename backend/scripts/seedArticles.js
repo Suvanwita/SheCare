@@ -98,11 +98,16 @@ const articles = [
   }
 ];
 
-const seedArticles = async () => {
+const seedArticles = async ({ manageConnection = true } = {}) => {
   const mongoUri = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/shecare';
+  let openedConnection = false;
 
   try {
-    await mongoose.connect(mongoUri);
+    if (manageConnection && mongoose.connection.readyState === 0) {
+      await mongoose.connect(mongoUri);
+      openedConnection = true;
+    }
+
     await Article.deleteMany({
       slug: {
         $in: articles.map((article) => article.slug)
@@ -111,12 +116,29 @@ const seedArticles = async () => {
     await Article.insertMany(articles);
     await buildArticleTrie();
     console.log(`Seeded ${articles.length} articles and rebuilt article trie.`);
+
+    return {
+      count: articles.length
+    };
   } catch (error) {
     console.error(`Article seed failed: ${error.message}`);
-    process.exitCode = 1;
+    if (manageConnection) {
+      process.exitCode = 1;
+    }
+
+    throw error;
   } finally {
-    await mongoose.disconnect();
+    if (manageConnection && openedConnection) {
+      await mongoose.disconnect();
+    }
   }
 };
 
-seedArticles();
+if (require.main === module) {
+  seedArticles().catch(() => {});
+}
+
+module.exports = {
+  articles,
+  seedArticles
+};

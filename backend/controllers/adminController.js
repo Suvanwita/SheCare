@@ -12,6 +12,8 @@ const PCOSAssessment = require('../models/PCOSAssessment');
 const Report = require('../models/Report');
 const Session = require('../models/Session');
 const User = require('../models/User');
+const { seedArticles } = require('../scripts/seedArticles');
+const { seedDoctors } = require('../scripts/seedDoctors');
 const { buildArticleTrie } = require('../utils/trie/articleTrie');
 
 const allowedDoctorFields = [
@@ -247,6 +249,68 @@ const mapArticleToCsvRow = (article) => {
   ]
     .map(escapeCsvValue)
     .join(',');
+};
+
+const exportPublishedArticlesCsv = async () => {
+  const articles = await Article.find({ isPublished: true }).sort({ createdAt: -1 });
+  const header = [
+    'article_id',
+    'slug',
+    'title',
+    'category',
+    'summary',
+    'content',
+    'tags',
+    'keywords',
+    'reading_time',
+    'cover_image'
+  ].join(',');
+  const csvContent = [header, ...articles.map(mapArticleToCsvRow)].join('\n');
+
+  await fs.mkdir(path.dirname(articleCsvPath), { recursive: true });
+  await fs.writeFile(articleCsvPath, `${csvContent}\n`, 'utf8');
+
+  return {
+    count: articles.length,
+    path: articleCsvPath
+  };
+};
+
+const triggerArticleRecommenderRetrain = async () => {
+  const response = await fetch(`${getArticleMlServiceUrl()}/retrain-recommender`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    signal: AbortSignal.timeout(10000)
+  });
+
+  if (!response.ok) {
+    throw new Error('Article-service retrain endpoint returned an error');
+  }
+
+  return response.json();
+};
+
+const getArticleServiceHealth = async () => {
+  try {
+    const response = await fetch(`${getArticleMlServiceUrl()}/health`, {
+      signal: AbortSignal.timeout(4000)
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    return {
+      reachable: response.ok,
+      statusCode: response.status,
+      data
+    };
+  } catch (error) {
+    return {
+      reachable: false,
+      message: error.message
+    };
+  }
 };
 
 const buildDateRange = (startDate, endDate) => {
@@ -733,49 +797,18 @@ const refreshAdminArticleSearch = asyncHandler(async (req, res) => {
 });
 
 const exportAdminArticlesCsv = asyncHandler(async (req, res) => {
-  const articles = await Article.find({ isPublished: true }).sort({ createdAt: -1 });
-  const header = [
-    'article_id',
-    'slug',
-    'title',
-    'category',
-    'summary',
-    'content',
-    'tags',
-    'keywords',
-    'reading_time',
-    'cover_image'
-  ].join(',');
-  const csvContent = [header, ...articles.map(mapArticleToCsvRow)].join('\n');
-
-  await fs.mkdir(path.dirname(articleCsvPath), { recursive: true });
-  await fs.writeFile(articleCsvPath, `${csvContent}\n`, 'utf8');
+  const data = await exportPublishedArticlesCsv();
 
   return res.status(200).json({
     success: true,
     message: 'Article CSV exported successfully',
-    data: {
-      count: articles.length,
-      path: articleCsvPath
-    }
+    data
   });
 });
 
 const retrainAdminArticleRecommender = asyncHandler(async (req, res) => {
   try {
-    const response = await fetch(`${getArticleMlServiceUrl()}/retrain-recommender`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      signal: AbortSignal.timeout(10000)
-    });
-
-    if (!response.ok) {
-      throw new Error('Article-service retrain endpoint returned an error');
-    }
-
-    const data = await response.json();
+    const data = await triggerArticleRecommenderRetrain();
 
     return res.status(200).json({
       success: true,
@@ -1455,6 +1488,101 @@ const getAdminAnalyticsOverview = asyncHandler(async (req, res) => {
   });
 });
 
+const seedAdminDoctorsTool = asyncHandler(async (req, res) => {
+  const data = await seedDoctors({ manageConnection: false });
+
+  return res.status(200).json({
+    success: true,
+    message: 'Doctor seed completed successfully',
+    data
+  });
+});
+
+const seedAdminArticlesTool = asyncHandler(async (req, res) => {
+  const data = await seedArticles({ manageConnection: false });
+
+  return res.status(200).json({
+    success: true,
+    message: 'Article seed completed successfully',
+    data
+  });
+});
+
+const exportAdminToolsArticlesCsv = asyncHandler(async (req, res) => {
+  const data = await exportPublishedArticlesCsv();
+
+  return res.status(200).json({
+    success: true,
+    message: 'Article CSV exported successfully',
+    data
+  });
+});
+
+const refreshAdminToolsArticleTrie = asyncHandler(async (req, res) => {
+  await buildArticleTrie();
+
+  return res.status(200).json({
+    success: true,
+    message: 'Article Trie refreshed successfully',
+    data: {
+      refreshed: true
+    }
+  });
+});
+
+const retrainAdminToolsArticleRecommender = asyncHandler(async (req, res) => {
+  try {
+    const data = await triggerArticleRecommenderRetrain();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Article recommender retrain triggered successfully',
+      data
+    });
+  } catch (error) {
+    return res.status(202).json({
+      success: true,
+      message:
+        'Article-service retrain endpoint is not available. Export CSV, then run train_recommender.py inside ml-model/article-service.',
+      data: {
+        available: false
+      }
+    });
+  }
+});
+
+const getAdminToolsStatus = asyncHandler(async (req, res) => {
+  const mongoStates = ['disconnected', 'connected', 'connecting', 'disconnecting'];
+  const mongoStatus = mongoStates[mongoose.connection.readyState] || 'unknown';
+  const [articleCount, doctorCount, articleServiceHealth] = await Promise.all([
+    Article.countDocuments({}),
+    Doctor.countDocuments({}),
+    getArticleServiceHealth()
+  ]);
+
+  return res.status(200).json({
+    success: true,
+    message: 'Admin tools status fetched successfully',
+    data: {
+      mongodb: {
+        status: mongoStatus,
+        readyState: mongoose.connection.readyState,
+        database: mongoose.connection.name || null
+      },
+      counts: {
+        articleCount,
+        doctorCount
+      },
+      services: {
+        articleMlServiceUrl: getArticleMlServiceUrl(),
+        pcosMlServiceUrl: process.env.PCOS_ML_SERVICE_URL || null,
+        cycleMlServiceUrl: process.env.CYCLE_ML_SERVICE_URL || null
+      },
+      articleServiceHealth
+    }
+  });
+});
+
 module.exports = {
   activateAdminUser,
   createAdminArticle,
@@ -1465,6 +1593,7 @@ module.exports = {
   deleteAdminUser,
   deactivateAdminUser,
   exportAdminArticlesCsv,
+  exportAdminToolsArticlesCsv,
   featureAdminArticle,
   getAdminArticleById,
   getAdminArticles,
@@ -1477,6 +1606,7 @@ module.exports = {
   getAdminNotifications,
   getAdminReportById,
   getAdminReports,
+  getAdminToolsStatus,
   getAdminUserById,
   getAdminUserSessions,
   getAdminUsers,
@@ -1484,9 +1614,13 @@ module.exports = {
   refreshAdminArticleSearch,
   revokeAdminUserSessions,
   retrainAdminArticleRecommender,
+  retrainAdminToolsArticleRecommender,
   createAdminAnnouncement,
   createAdminSystemNotification,
+  refreshAdminToolsArticleTrie,
   resolveAdminAppointment,
+  seedAdminArticlesTool,
+  seedAdminDoctorsTool,
   unfeatureAdminArticle,
   unpublishAdminArticle,
   unverifyAdminDoctor,

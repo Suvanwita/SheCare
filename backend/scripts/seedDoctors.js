@@ -95,11 +95,16 @@ const doctors = [
   }
 ];
 
-const seedDoctors = async () => {
+const seedDoctors = async ({ manageConnection = true } = {}) => {
   const mongoUri = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/shecare';
+  let openedConnection = false;
 
   try {
-    await mongoose.connect(mongoUri);
+    if (manageConnection && mongoose.connection.readyState === 0) {
+      await mongoose.connect(mongoUri);
+      openedConnection = true;
+    }
+
     await Doctor.deleteMany({
       name: {
         $in: doctors.map((doctor) => doctor.name)
@@ -107,12 +112,29 @@ const seedDoctors = async () => {
     });
     await Doctor.insertMany(doctors);
     console.log(`Seeded ${doctors.length} doctors.`);
+
+    return {
+      count: doctors.length
+    };
   } catch (error) {
     console.error(`Doctor seed failed: ${error.message}`);
-    process.exitCode = 1;
+    if (manageConnection) {
+      process.exitCode = 1;
+    }
+
+    throw error;
   } finally {
-    await mongoose.disconnect();
+    if (manageConnection && openedConnection) {
+      await mongoose.disconnect();
+    }
   }
 };
 
-seedDoctors();
+if (require.main === module) {
+  seedDoctors().catch(() => {});
+}
+
+module.exports = {
+  doctors,
+  seedDoctors
+};

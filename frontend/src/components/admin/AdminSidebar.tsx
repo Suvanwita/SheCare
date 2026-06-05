@@ -104,9 +104,9 @@ export default function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
         </nav>
 
         <div className="m-4 rounded-3xl border border-secondary/10 bg-gradient-to-br from-primary/10 via-secondary/10 to-transparent p-4">
-          <p className="text-xs font-bold text-foreground">Admin foundation</p>
+          <p className="text-xs font-bold text-foreground">Admin operations</p>
           <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
-            Module data will connect in the next implementation pass.
+            Manage doctors, articles, users, operations, analytics, and maintenance tools.
           </p>
         </div>
       </aside>

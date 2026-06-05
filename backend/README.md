@@ -13,6 +13,7 @@ JWT_ACCESS_SECRET=your_access_secret
 JWT_REFRESH_SECRET=your_refresh_secret
 CLIENT_URL=http://localhost:3000
 ML_SERVICE_URL=http://localhost:8000
+ARTICLE_ML_SERVICE_URL=http://localhost:8002
 ```
 
 Optional auth expiry vars default in code:
@@ -28,6 +29,7 @@ REFRESH_TOKEN_EXPIRES_IN=7d
 npm install
 npm run dev
 npm run seed:doctors
+node scripts/seedArticles.js
 ```
 
 ## Auth Flow
@@ -83,6 +85,77 @@ npm run seed:doctors
 - `GET /api/pcos/history`
 - `GET /api/pcos/:id`
 - `GET /api/analytics/summary`
+- `GET /api/articles`
+- `GET /api/articles/:slug`
+- `GET /api/articles/search/suggestions`
+- `GET /api/articles/:slug/similar`
+- `GET /api/admin/health`
+- `GET /api/admin/analytics/overview`
+- `GET /api/admin/doctors`
+- `POST /api/admin/doctors`
+- `GET /api/admin/doctors/:id`
+- `PATCH /api/admin/doctors/:id`
+- `DELETE /api/admin/doctors/:id`
+- `PATCH /api/admin/doctors/:id/verify`
+- `PATCH /api/admin/doctors/:id/unverify`
+- `GET /api/admin/doctors/:id/appointments`
+- `GET /api/admin/articles`
+- `POST /api/admin/articles`
+- `GET /api/admin/articles/:id`
+- `PATCH /api/admin/articles/:id`
+- `DELETE /api/admin/articles/:id`
+- `PATCH /api/admin/articles/:id/publish`
+- `PATCH /api/admin/articles/:id/unpublish`
+- `PATCH /api/admin/articles/:id/feature`
+- `PATCH /api/admin/articles/:id/unfeature`
+- `POST /api/admin/articles/refresh-search`
+- `POST /api/admin/articles/export-csv`
+- `POST /api/admin/articles/retrain-recommender`
+- `GET /api/admin/users`
+- `GET /api/admin/users/:id`
+- `PATCH /api/admin/users/:id/role`
+- `PATCH /api/admin/users/:id/activate`
+- `PATCH /api/admin/users/:id/deactivate`
+- `GET /api/admin/users/:id/sessions`
+- `PATCH /api/admin/users/:id/revoke-sessions`
+- `DELETE /api/admin/users/:id`
+- `GET /api/admin/appointments`
+- `PATCH /api/admin/appointments/:id/status`
+- `PATCH /api/admin/appointments/:id/resolve`
+- `GET /api/admin/reports`
+- `GET /api/admin/reports/:id`
+- `DELETE /api/admin/reports/:id`
+- `POST /api/admin/notifications/announcement`
+- `POST /api/admin/notifications/system`
+- `GET /api/admin/notifications`
+- `GET /api/admin/tools/status`
+- `POST /api/admin/tools/seed-doctors`
+- `POST /api/admin/tools/seed-articles`
+- `POST /api/admin/tools/export-articles-csv`
+- `POST /api/admin/tools/refresh-article-trie`
+- `POST /api/admin/tools/retrain-article-recommender`
+
+## Admin Access
+
+Register a normal user first, then promote the account in MongoDB:
+
+```js
+db.users.updateOne(
+  { email: "admin@example.com" },
+  { $set: { role: "admin", isActive: true } }
+)
+```
+
+All `/api/admin/*` routes require a valid access token and `role: "admin"`.
+
+## Admin Tools
+
+- Seed doctors: runs the shared doctor seed function without disconnecting the live backend.
+- Seed articles: runs the shared article seed function and refreshes Knowledge Hub Trie search.
+- Export article CSV: writes published articles to `ml-model/article-service/data/articles.csv`.
+- Refresh article Trie: rebuilds backend autocomplete suggestions.
+- Retrain article recommender: calls `ARTICLE_ML_SERVICE_URL/retrain-recommender` when available and otherwise returns a clear manual training message.
+- Status: reports MongoDB connection state, article/doctor counts, configured ML URLs, and article-service health.
 
 ## Upload Notes
 
