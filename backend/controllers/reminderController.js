@@ -3,6 +3,11 @@ const Reminder = require('../models/Reminder');
 const Notification = require('../models/Notification');
 const asyncHandler = require('../middleware/asyncHandler');
 const { successResponse } = require('../utils/apiResponse');
+const {
+  scheduleReminderJob,
+  cancelReminderJob,
+  rescheduleReminderJob
+} = require('../queues/producers/reminderProducer');
 
 const allowedFields = ['title', 'type', 'message', 'scheduledAt', 'repeat', 'priority', 'status'];
 
@@ -111,6 +116,7 @@ const createReminder = asyncHandler(async (req, res) => {
     reminder.message || 'Your reminder has been scheduled.',
     'created'
   );
+  await scheduleReminderJob(reminder);
 
   return successResponse(res, 201, 'Reminder created successfully', {
     reminder
@@ -163,6 +169,7 @@ const updateReminder = asyncHandler(async (req, res) => {
   if (!reminder) {
     throw createError('Reminder not found', 404);
   }
+  await rescheduleReminderJob(reminder);
 
   return successResponse(res, 200, 'Reminder updated successfully', {
     reminder
@@ -180,6 +187,7 @@ const deleteReminder = asyncHandler(async (req, res) => {
   if (!reminder) {
     throw createError('Reminder not found', 404);
   }
+  await cancelReminderJob(reminder._id);
 
   return successResponse(res, 200, 'Reminder deleted successfully', {
     id: req.params.id
@@ -206,6 +214,7 @@ const completeReminder = asyncHandler(async (req, res) => {
   if (!reminder) {
     throw createError('Reminder not found', 404);
   }
+  await cancelReminderJob(reminder._id);
 
   await createReminderNotification(
     req.user._id,

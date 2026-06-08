@@ -1,5 +1,4 @@
 const { Queue } = require('bullmq');
-const connection = require('./connection');
 const queueNames = require('./queueNames');
 
 const defaultJobOptions = {
@@ -12,22 +11,38 @@ const defaultJobOptions = {
   removeOnFail: false
 };
 
-const createQueue = (name) =>
-  new Queue(name, {
+const queues = {};
+
+const createQueue = (name) => {
+  const connection = require('./connection');
+
+  return new Queue(name, {
     connection,
     defaultJobOptions
   });
+};
 
-const reminderQueue = createQueue(queueNames.reminderQueue);
-const notificationQueue = createQueue(queueNames.notificationQueue);
-const emailQueue = createQueue(queueNames.emailQueue);
-const analyticsQueue = createQueue(queueNames.analyticsQueue);
+const getQueue = (name) => {
+  if (!queues[name]) {
+    queues[name] = createQueue(name);
+  }
+
+  return queues[name];
+};
 
 module.exports = {
   queueNames,
   defaultJobOptions,
-  reminderQueue,
-  notificationQueue,
-  emailQueue,
-  analyticsQueue
+  get reminderQueue() {
+    return getQueue(queueNames.reminderQueue);
+  },
+  get notificationQueue() {
+    return getQueue(queueNames.notificationQueue);
+  },
+  get emailQueue() {
+    return getQueue(queueNames.emailQueue);
+  },
+  get analyticsQueue() {
+    return getQueue(queueNames.analyticsQueue);
+  }
 };
