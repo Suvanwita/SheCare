@@ -1,10 +1,14 @@
 const express = require('express');
 const dotenv = require('dotenv');
+
+dotenv.config();
+
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const cookieParser = require('cookie-parser');
 const connectDB = require('./config/db');
+const { connectRedis, closeRedis } = require('./config/redis');
 const authRoutes = require('./routes/authRoutes');
 const cycleRoutes = require('./routes/cycleRoutes');
 const healthLogRoutes = require('./routes/healthLogRoutes');
@@ -19,8 +23,6 @@ const articleRoutes = require('./routes/articleRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const { notFound, errorHandler } = require('./middleware/errorMiddleware');
 const { buildArticleTrie } = require('./utils/trie/articleTrie');
-
-dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -74,6 +76,7 @@ app.use(errorHandler);
 
 const startServer = async () => {
   await connectDB();
+  await connectRedis();
 
   buildArticleTrie()
     .then(() => {
@@ -83,9 +86,21 @@ const startServer = async () => {
       console.error(`Article search trie build failed: ${error.message}`);
     });
 
-  app.listen(PORT, () => {
+  const server = app.listen(PORT, () => {
     console.log(`SheCare backend server running on port ${PORT}`);
   });
+
+  const shutdown = async (signal) => {
+    console.log(`${signal} received. Shutting down SheCare backend.`);
+
+    server.close(async () => {
+      await closeRedis();
+      process.exit(0);
+    });
+  };
+
+  process.on('SIGINT', shutdown);
+  process.on('SIGTERM', shutdown);
 };
 
 if (require.main === module) {
