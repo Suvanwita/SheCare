@@ -16,6 +16,7 @@ const AuditLog = require('../models/AuditLog');
 const { seedArticles } = require('../scripts/seedArticles');
 const { seedDoctors } = require('../scripts/seedDoctors');
 const { buildArticleTrie } = require('../utils/trie/articleTrie');
+const { enqueueNotification } = require('../queues/producers/notificationProducer');
 
 const allowedDoctorFields = [
   'name',
@@ -1291,39 +1292,38 @@ const createAdminAnnouncement = asyncHandler(async (req, res) => {
     throw createError('Announcement target must be global or users', 400);
   }
 
-  let users = [];
+  if (target === 'users') {
+    if (!Array.isArray(userIds) || userIds.length === 0) {
+      throw createError('User IDs are required for targeted announcements', 400);
+    }
 
-  if (target === 'global') {
-    users = await User.find({ isActive: true }).select('_id');
-  } else {
-    users = await User.find({
-      _id: { $in: userIds },
-      isActive: true
-    }).select('_id');
+    const hasInvalidUserId = userIds.some(
+      (userId) => !mongoose.Types.ObjectId.isValid(userId)
+    );
+
+    if (hasInvalidUserId) {
+      throw createError('One or more user IDs are invalid', 400);
+    }
   }
 
-  if (!users.length) {
-    throw createError('No active users found for announcement', 400);
-  }
+  const job = await enqueueNotification({
+    target,
+    userIds: target === 'users' ? userIds : undefined,
+    title,
+    message,
+    type: 'system',
+    metadata: {
+      source: 'admin-announcement',
+      target
+    }
+  });
 
-  const notifications = await Notification.insertMany(
-    users.map((user) => ({
-      user: user._id,
-      title,
-      message,
-      type: 'system',
-      metadata: {
-        source: 'admin-announcement',
-        target
-      }
-    }))
-  );
-
-  return res.status(201).json({
+  return res.status(202).json({
     success: true,
-    message: 'Announcement notifications created successfully',
+    message: 'Announcement notification job queued successfully',
     data: {
-      count: notifications.length
+      jobId: job.id,
+      target
     }
   });
 });
