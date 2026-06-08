@@ -22,6 +22,10 @@ const analyticsRoutes = require('./routes/analyticsRoutes');
 const articleRoutes = require('./routes/articleRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const { notFound, errorHandler } = require('./middleware/errorMiddleware');
+const {
+  generalApiRateLimiter,
+  closeRateLimitStores
+} = require('./middleware/rateLimiter');
 const { buildArticleTrie } = require('./utils/trie/articleTrie');
 
 const app = express();
@@ -58,6 +62,7 @@ app.get('/health', (req, res) => {
   });
 });
 
+app.use('/api', generalApiRateLimiter);
 app.use('/api/auth', authRoutes);
 app.use('/api/cycles', cycleRoutes);
 app.use('/api/health-logs', healthLogRoutes);
@@ -94,6 +99,7 @@ const startServer = async () => {
     console.log(`${signal} received. Shutting down SheCare backend.`);
 
     server.close(async () => {
+      await closeRateLimitStores();
       await closeRedis();
       process.exit(0);
     });

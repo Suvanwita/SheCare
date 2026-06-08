@@ -9,13 +9,14 @@ const {
   updateArticle
 } = require('../controllers/articleController');
 const { protect } = require('../middleware/authMiddleware');
+const { mlProxyRateLimiter } = require('../middleware/rateLimiter');
 
 const router = express.Router();
 
 router.get('/search/suggestions', getSearchSuggestions);
 router.get('/', getArticles);
 router.post('/', protect, createArticle);
-router.get('/:slug/similar', getSimilarArticlesBySlug);
+router.get('/:slug/similar', mlProxyRateLimiter, getSimilarArticlesBySlug);
 router.get('/:slug', getArticleBySlug);
 router.patch('/:slug', protect, updateArticle);
 router.delete('/:slug', protect, deleteArticle);

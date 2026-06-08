@@ -5,12 +5,13 @@ const {
   getPcosAssessmentById
 } = require('../controllers/pcosController');
 const { protect } = require('../middleware/authMiddleware');
+const { mlProxyRateLimiter } = require('../middleware/rateLimiter');
 
 const router = express.Router();
 
 router.use(protect);
 
-router.post('/predict', predictPcos);
+router.post('/predict', mlProxyRateLimiter, predictPcos);
 router.get('/history', getPcosHistory);
 router.get('/:id', getPcosAssessmentById);
 
