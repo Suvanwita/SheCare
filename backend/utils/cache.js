@@ -5,6 +5,7 @@ const cacheKeys = {
   articleSlug: (slug) => `articles:slug:${slug}`,
   articlesSimilar: (slug) => `articles:similar:${slug}`,
   adminAnalytics: 'admin:analytics',
+  adminAnalyticsOverview: 'admin:analytics:overview',
   doctorsList: 'doctors:list'
 };
 

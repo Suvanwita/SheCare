@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const PCOSAssessment = require('../models/PCOSAssessment');
 const asyncHandler = require('../middleware/asyncHandler');
 const { successResponse } = require('../utils/apiResponse');
+const { cacheKeys, deleteCache } = require('../utils/cache');
 
 const createError = (message, statusCode) => {
   const error = new Error(message);
@@ -23,6 +24,12 @@ const getMlServiceUrl = () => {
   }
 
   return url.replace(/\/$/, '');
+};
+
+const invalidateAdminAnalyticsCacheSafely = () => {
+  deleteCache(cacheKeys.adminAnalyticsOverview).catch((error) => {
+    console.error(`Admin analytics cache invalidation failed: ${error.message}`);
+  });
 };
 
 const predictPcos = asyncHandler(async (req, res) => {
@@ -52,6 +59,7 @@ const predictPcos = asyncHandler(async (req, res) => {
     input: req.body,
     result: prediction
   });
+  invalidateAdminAnalyticsCacheSafely();
 
   return successResponse(res, 201, 'PCOS assessment completed successfully', {
     assessment

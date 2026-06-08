@@ -4,7 +4,13 @@ const {
   buildArticleTrie,
   getArticleSuggestions
 } = require('../utils/trie/articleTrie');
-const { cacheKeys, deleteByPattern, getCache, setCache } = require('../utils/cache');
+const {
+  cacheKeys,
+  deleteByPattern,
+  deleteCache,
+  getCache,
+  setCache
+} = require('../utils/cache');
 
 const ARTICLE_LIST_CACHE_TTL_SECONDS = 10 * 60;
 const ARTICLE_DETAIL_CACHE_TTL_SECONDS = 10 * 60;
@@ -77,6 +83,12 @@ const invalidateArticleCacheSafely = () => {
     deleteByPattern('articles:similar:*')
   ]).catch((error) => {
     console.error(`Article cache invalidation failed: ${error.message}`);
+  });
+};
+
+const invalidateAdminAnalyticsCacheSafely = () => {
+  deleteCache(cacheKeys.adminAnalyticsOverview).catch((error) => {
+    console.error(`Admin analytics cache invalidation failed: ${error.message}`);
   });
 };
 
@@ -283,6 +295,7 @@ const createArticle = asyncHandler(async (req, res) => {
   const article = await Article.create(payload);
   rebuildArticleTrieSafely();
   invalidateArticleCacheSafely();
+  invalidateAdminAnalyticsCacheSafely();
 
   return res.status(201).json({
     success: true,
@@ -311,6 +324,7 @@ const updateArticle = asyncHandler(async (req, res) => {
 
   rebuildArticleTrieSafely();
   invalidateArticleCacheSafely();
+  invalidateAdminAnalyticsCacheSafely();
 
   return res.status(200).json({
     success: true,
@@ -331,6 +345,7 @@ const deleteArticle = asyncHandler(async (req, res) => {
 
   rebuildArticleTrieSafely();
   invalidateArticleCacheSafely();
+  invalidateAdminAnalyticsCacheSafely();
 
   return res.status(200).json({
     success: true,

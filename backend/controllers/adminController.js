@@ -17,7 +17,15 @@ const { seedArticles } = require('../scripts/seedArticles');
 const { seedDoctors } = require('../scripts/seedDoctors');
 const { buildArticleTrie } = require('../utils/trie/articleTrie');
 const { enqueueNotification } = require('../queues/producers/notificationProducer');
-const { cacheKeys, deleteByPattern } = require('../utils/cache');
+const {
+  cacheKeys,
+  deleteByPattern,
+  deleteCache,
+  getCache,
+  setCache
+} = require('../utils/cache');
+
+const ADMIN_ANALYTICS_OVERVIEW_TTL_SECONDS = 2 * 60;
 
 const allowedDoctorFields = [
   'name',
@@ -276,6 +284,16 @@ const invalidateDoctorCacheSafely = () => {
 const invalidateArticleCacheSafely = () => {
   invalidateArticleCache().catch((error) => {
     console.error(`Article cache invalidation failed: ${error.message}`);
+  });
+};
+
+const invalidateAdminAnalyticsCache = () => {
+  return deleteCache(cacheKeys.adminAnalyticsOverview);
+};
+
+const invalidateAdminAnalyticsCacheSafely = () => {
+  invalidateAdminAnalyticsCache().catch((error) => {
+    console.error(`Admin analytics cache invalidation failed: ${error.message}`);
   });
 };
 
@@ -720,6 +738,7 @@ const createAdminArticle = asyncHandler(async (req, res) => {
   const article = await Article.create(payload);
   rebuildArticleTrieSafely();
   invalidateArticleCacheSafely();
+  invalidateAdminAnalyticsCacheSafely();
 
   return res.status(201).json({
     success: true,
@@ -772,6 +791,7 @@ const updateAdminArticle = asyncHandler(async (req, res) => {
 
   rebuildArticleTrieSafely();
   invalidateArticleCacheSafely();
+  invalidateAdminAnalyticsCacheSafely();
 
   return res.status(200).json({
     success: true,
@@ -793,6 +813,7 @@ const deleteAdminArticle = asyncHandler(async (req, res) => {
 
   rebuildArticleTrieSafely();
   invalidateArticleCacheSafely();
+  invalidateAdminAnalyticsCacheSafely();
 
   return res.status(200).json({
     success: true,
@@ -822,6 +843,7 @@ const updateAdminArticleFlag = (field, value, message) =>
 
     rebuildArticleTrieSafely();
     invalidateArticleCacheSafely();
+    invalidateAdminAnalyticsCacheSafely();
 
     return res.status(200).json({
       success: true,
@@ -973,6 +995,7 @@ const updateAdminUserRole = asyncHandler(async (req, res) => {
   if (!user) {
     throw createError('User not found', 404);
   }
+  invalidateAdminAnalyticsCacheSafely();
 
   return res.status(200).json({
     success: true,
@@ -1170,6 +1193,7 @@ const updateAdminAppointmentStatus = asyncHandler(async (req, res) => {
   if (!appointment) {
     throw createError('Appointment not found', 404);
   }
+  invalidateAdminAnalyticsCacheSafely();
 
   return res.status(200).json({
     success: true,
@@ -1206,6 +1230,7 @@ const resolveAdminAppointment = asyncHandler(async (req, res) => {
   if (!appointment) {
     throw createError('Appointment not found', 404);
   }
+  invalidateAdminAnalyticsCacheSafely();
 
   return res.status(200).json({
     success: true,
@@ -1277,6 +1302,7 @@ const deleteAdminReport = asyncHandler(async (req, res) => {
   }
 
   await removeLocalFile(report.path);
+  invalidateAdminAnalyticsCacheSafely();
 
   return res.status(200).json({
     success: true,
@@ -1404,6 +1430,17 @@ const formatAggregationRows = (rows, labelKey = '_id', valueKey = 'count') => {
 };
 
 const getAdminAnalyticsOverview = asyncHandler(async (req, res) => {
+  const cachedData = await getCache(cacheKeys.adminAnalyticsOverview);
+
+  if (cachedData) {
+    return res.status(200).json({
+      success: true,
+      message: 'Admin analytics overview fetched successfully',
+      cache: 'hit',
+      data: cachedData
+    });
+  }
+
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
@@ -1509,54 +1546,63 @@ const getAdminAnalyticsOverview = asyncHandler(async (req, res) => {
     {}
   );
 
+  const data = {
+    users: {
+      totalUsers,
+      activeUsers,
+      doctors,
+      admins,
+      newUsersThisMonth
+    },
+    appointments: {
+      totalAppointments,
+      pendingAppointments,
+      completedAppointments,
+      cancelledAppointments,
+      appointmentVolumeByMonth: appointmentVolumeByMonth.map((row) => ({
+        month: `${row._id.year}-${String(row._id.month).padStart(2, '0')}`,
+        count: row.count
+      }))
+    },
+    knowledgeHub: {
+      totalArticles,
+      publishedArticles,
+      featuredArticles,
+      totalArticleViews: articleTotals[0]?.totalArticleViews || 0,
+      totalBookmarks: articleTotals[0]?.totalBookmarks || 0,
+      popularCategories: formatAggregationRows(popularCategories)
+    },
+    reports: {
+      totalReports,
+      reportsByCategory: formatAggregationRows(reportsByCategory),
+      reportsByMimeType: formatAggregationRows(reportsByMimeType)
+    },
+    pcos: {
+      totalAssessments,
+      lowRiskCount: riskCounts.Low || 0,
+      moderateRiskCount: riskCounts.Moderate || 0,
+      highRiskCount: riskCounts.High || 0
+    },
+    healthTrends: {
+      popularSymptoms: formatAggregationRows(popularSymptoms),
+      averageCycleLength: Number(
+        (cycleStats[0]?.averageCycleLength || 0).toFixed(1)
+      ),
+      irregularCycleCount
+    }
+  };
+
+  await setCache(
+    cacheKeys.adminAnalyticsOverview,
+    data,
+    ADMIN_ANALYTICS_OVERVIEW_TTL_SECONDS
+  );
+
   return res.status(200).json({
     success: true,
     message: 'Admin analytics overview fetched successfully',
-    data: {
-      users: {
-        totalUsers,
-        activeUsers,
-        doctors,
-        admins,
-        newUsersThisMonth
-      },
-      appointments: {
-        totalAppointments,
-        pendingAppointments,
-        completedAppointments,
-        cancelledAppointments,
-        appointmentVolumeByMonth: appointmentVolumeByMonth.map((row) => ({
-          month: `${row._id.year}-${String(row._id.month).padStart(2, '0')}`,
-          count: row.count
-        }))
-      },
-      knowledgeHub: {
-        totalArticles,
-        publishedArticles,
-        featuredArticles,
-        totalArticleViews: articleTotals[0]?.totalArticleViews || 0,
-        totalBookmarks: articleTotals[0]?.totalBookmarks || 0,
-        popularCategories: formatAggregationRows(popularCategories)
-      },
-      reports: {
-        totalReports,
-        reportsByCategory: formatAggregationRows(reportsByCategory),
-        reportsByMimeType: formatAggregationRows(reportsByMimeType)
-      },
-      pcos: {
-        totalAssessments,
-        lowRiskCount: riskCounts.Low || 0,
-        moderateRiskCount: riskCounts.Moderate || 0,
-        highRiskCount: riskCounts.High || 0
-      },
-      healthTrends: {
-        popularSymptoms: formatAggregationRows(popularSymptoms),
-        averageCycleLength: Number(
-          (cycleStats[0]?.averageCycleLength || 0).toFixed(1)
-        ),
-        irregularCycleCount
-      }
-    }
+    cache: 'miss',
+    data
   });
 });
 
