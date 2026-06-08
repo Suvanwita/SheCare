@@ -8,7 +8,8 @@
     "dev": "nodemon server.js",
     "test": "node --test",
     "seed:doctors": "node scripts/seedDoctors.js",
-    "seed:articles": "node scripts/seedArticles.js"
+    "seed:articles": "node scripts/seedArticles.js",
+    "worker:reminders": "node workers/reminderWorker.js"
   },
   "keywords": [
     "shecare",
