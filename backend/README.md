@@ -15,6 +15,11 @@ CLIENT_URL=http://localhost:3000
 ML_SERVICE_URL=http://localhost:8000
 ARTICLE_ML_SERVICE_URL=http://localhost:8002
 ALLOW_ADMIN_SEED_TOOLS=false
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_URL=redis://localhost:6379
+KAFKA_CLIENT_ID=shecare-backend
+KAFKA_BROKERS=localhost:9092
 ```
 
 Optional auth expiry vars default in code:
@@ -33,6 +38,19 @@ npm test
 npm run seed:doctors
 node scripts/seedArticles.js
 ```
+
+## Infrastructure
+
+Redis, Zookeeper, and Kafka are defined in the root `docker-compose.yml`.
+
+```bash
+docker compose up -d redis zookeeper kafka
+```
+
+Local service endpoints:
+
+- Redis: `redis://localhost:6379`
+- Kafka broker: `localhost:9092`
 
 ## Auth Flow
 
