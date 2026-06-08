@@ -4,6 +4,11 @@ const {
   buildArticleTrie,
   getArticleSuggestions
 } = require('../utils/trie/articleTrie');
+const { cacheKeys, deleteByPattern, getCache, setCache } = require('../utils/cache');
+
+const ARTICLE_LIST_CACHE_TTL_SECONDS = 10 * 60;
+const ARTICLE_DETAIL_CACHE_TTL_SECONDS = 10 * 60;
+const SIMILAR_ARTICLES_CACHE_TTL_SECONDS = 30 * 60;
 
 const allowedFields = [
   'title',
@@ -65,6 +70,16 @@ const rebuildArticleTrieSafely = () => {
   });
 };
 
+const invalidateArticleCacheSafely = () => {
+  Promise.all([
+    deleteByPattern(`${cacheKeys.articlesList}*`),
+    deleteByPattern('articles:slug:*'),
+    deleteByPattern('articles:similar:*')
+  ]).catch((error) => {
+    console.error(`Article cache invalidation failed: ${error.message}`);
+  });
+};
+
 const parseBoolean = (value) => {
   if (value === undefined) {
     return undefined;
@@ -108,6 +123,22 @@ const buildArticleFilters = (query) => {
   }
 
   return filters;
+};
+
+const getStableQueryKey = (query) => {
+  const entries = Object.keys(query)
+    .sort()
+    .map((key) => [key, query[key]]);
+
+  return JSON.stringify(entries);
+};
+
+const getArticlesCacheKey = (query) => {
+  const queryKey = getStableQueryKey(query);
+
+  return queryKey === '[]'
+    ? cacheKeys.articlesList
+    : `${cacheKeys.articlesList}:${queryKey}`;
 };
 
 const getMongoFallbackRecommendations = async (article, limit = 4) => {
@@ -181,6 +212,15 @@ const getArticles = asyncHandler(async (req, res) => {
     ? { score: { $meta: 'textScore' }, featured: -1, createdAt: -1 }
     : { featured: -1, createdAt: -1 };
   const projection = filters.$text ? { score: { $meta: 'textScore' } } : {};
+  const cacheKey = getArticlesCacheKey(req.query);
+  const cachedData = await getCache(cacheKey);
+
+  if (cachedData) {
+    return res.status(200).json({
+      success: true,
+      data: cachedData
+    });
+  }
 
   const [articles, total] = await Promise.all([
     Article.find(filters, projection)
@@ -191,29 +231,40 @@ const getArticles = asyncHandler(async (req, res) => {
     Article.countDocuments(filters)
   ]);
 
+  const data = {
+    articles,
+    pagination: {
+      page,
+      limit,
+      total,
+      pages: Math.ceil(total / limit)
+    }
+  };
+
+  await setCache(cacheKey, data, ARTICLE_LIST_CACHE_TTL_SECONDS);
+
   return res.status(200).json({
     success: true,
-    data: {
-      articles,
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit)
-      }
-    }
+    data
   });
 });
 
 const getArticleBySlug = asyncHandler(async (req, res) => {
-  const article = await Article.findOne({
-    slug: req.params.slug,
-    isPublished: true
-  }).lean();
+  const cacheKey = cacheKeys.articleSlug(req.params.slug);
+  let article = await getCache(cacheKey);
+
+  if (!article) {
+    article = await Article.findOne({
+      slug: req.params.slug,
+      isPublished: true
+    }).lean();
+  }
 
   if (!article) {
     throw createError('Article not found', 404);
   }
+
+  await setCache(cacheKey, article, ARTICLE_DETAIL_CACHE_TTL_SECONDS);
 
   await Article.updateOne({ _id: article._id }, { $inc: { views: 1 } });
 
@@ -231,6 +282,7 @@ const createArticle = asyncHandler(async (req, res) => {
   const payload = pickArticleFields(req.body);
   const article = await Article.create(payload);
   rebuildArticleTrieSafely();
+  invalidateArticleCacheSafely();
 
   return res.status(201).json({
     success: true,
@@ -258,6 +310,7 @@ const updateArticle = asyncHandler(async (req, res) => {
   }
 
   rebuildArticleTrieSafely();
+  invalidateArticleCacheSafely();
 
   return res.status(200).json({
     success: true,
@@ -277,6 +330,7 @@ const deleteArticle = asyncHandler(async (req, res) => {
   }
 
   rebuildArticleTrieSafely();
+  invalidateArticleCacheSafely();
 
   return res.status(200).json({
     success: true,
@@ -288,6 +342,13 @@ const deleteArticle = asyncHandler(async (req, res) => {
 
 const getSimilarArticlesBySlug = asyncHandler(async (req, res) => {
   const limit = 4;
+  const cacheKey = cacheKeys.articlesSimilar(req.params.slug);
+  const cachedData = await getCache(cacheKey);
+
+  if (cachedData) {
+    return res.status(200).json(cachedData);
+  }
+
   const article = await Article.findOne({
     slug: req.params.slug,
     isPublished: true
@@ -319,19 +380,27 @@ const getSimilarArticlesBySlug = asyncHandler(async (req, res) => {
 
     const mlResponse = await response.json();
 
-    return res.status(200).json({
+    const data = {
       success: true,
       source: mlResponse.source || 'tfidf-cosine-similarity',
       recommendations: mlResponse.recommendations || []
-    });
+    };
+
+    await setCache(cacheKey, data, SIMILAR_ARTICLES_CACHE_TTL_SECONDS);
+
+    return res.status(200).json(data);
   } catch (error) {
     const recommendations = await getMongoFallbackRecommendations(article, limit);
 
-    return res.status(200).json({
+    const data = {
       success: true,
       source: 'mongodb-fallback',
       recommendations
-    });
+    };
+
+    await setCache(cacheKey, data, SIMILAR_ARTICLES_CACHE_TTL_SECONDS);
+
+    return res.status(200).json(data);
   }
 });
 

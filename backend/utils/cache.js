@@ -31,7 +31,14 @@ const parseCacheValue = (value) => {
 };
 
 const getCache = async (key) => {
-  const value = await redis.get(key);
+  let value;
+
+  try {
+    value = await redis.get(key);
+  } catch (error) {
+    console.error(`Cache read failed for ${key}: ${error.message}`);
+    return null;
+  }
 
   return parseCacheValue(value);
 };
@@ -44,16 +51,33 @@ const setCache = async (key, value, ttlSeconds) => {
   }
 
   if (ttlSeconds && Number(ttlSeconds) > 0) {
-    await redis.set(key, serializedValue, 'EX', Number(ttlSeconds));
+    try {
+      await redis.set(key, serializedValue, 'EX', Number(ttlSeconds));
+    } catch (error) {
+      console.error(`Cache write failed for ${key}: ${error.message}`);
+      return false;
+    }
+
     return true;
   }
 
-  await redis.set(key, serializedValue);
+  try {
+    await redis.set(key, serializedValue);
+  } catch (error) {
+    console.error(`Cache write failed for ${key}: ${error.message}`);
+    return false;
+  }
+
   return true;
 };
 
 const deleteCache = async (key) => {
-  return redis.del(key);
+  try {
+    return await redis.del(key);
+  } catch (error) {
+    console.error(`Cache delete failed for ${key}: ${error.message}`);
+    return 0;
+  }
 };
 
 const deleteByPattern = async (pattern) => {
@@ -61,11 +85,24 @@ const deleteByPattern = async (pattern) => {
   let deletedCount = 0;
 
   do {
-    const [nextCursor, keys] = await redis.scan(cursor, 'MATCH', pattern, 'COUNT', 100);
+    let result;
+
+    try {
+      result = await redis.scan(cursor, 'MATCH', pattern, 'COUNT', 100);
+    } catch (error) {
+      console.error(`Cache pattern scan failed for ${pattern}: ${error.message}`);
+      return deletedCount;
+    }
+
+    const [nextCursor, keys] = result;
     cursor = nextCursor;
 
     if (keys.length) {
-      deletedCount += await redis.del(...keys);
+      try {
+        deletedCount += await redis.del(...keys);
+      } catch (error) {
+        console.error(`Cache pattern delete failed for ${pattern}: ${error.message}`);
+      }
     }
   } while (cursor !== '0');
 

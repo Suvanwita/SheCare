@@ -17,6 +17,7 @@ const { seedArticles } = require('../scripts/seedArticles');
 const { seedDoctors } = require('../scripts/seedDoctors');
 const { buildArticleTrie } = require('../utils/trie/articleTrie');
 const { enqueueNotification } = require('../queues/producers/notificationProducer');
+const { cacheKeys, deleteByPattern } = require('../utils/cache');
 
 const allowedDoctorFields = [
   'name',
@@ -251,6 +252,30 @@ const ensureSeedToolsAllowed = () => {
 const rebuildArticleTrieSafely = () => {
   buildArticleTrie().catch((error) => {
     console.error(`Admin article trie rebuild failed: ${error.message}`);
+  });
+};
+
+const invalidateDoctorCache = () => {
+  return deleteByPattern(`${cacheKeys.doctorsList}*`);
+};
+
+const invalidateArticleCache = () => {
+  return Promise.all([
+    deleteByPattern(`${cacheKeys.articlesList}*`),
+    deleteByPattern('articles:slug:*'),
+    deleteByPattern('articles:similar:*')
+  ]);
+};
+
+const invalidateDoctorCacheSafely = () => {
+  invalidateDoctorCache().catch((error) => {
+    console.error(`Doctor cache invalidation failed: ${error.message}`);
+  });
+};
+
+const invalidateArticleCacheSafely = () => {
+  invalidateArticleCache().catch((error) => {
+    console.error(`Article cache invalidation failed: ${error.message}`);
   });
 };
 
@@ -490,6 +515,7 @@ const createAdminDoctor = asyncHandler(async (req, res) => {
   }
 
   const doctor = await Doctor.create(pickDoctorFields(req.body));
+  invalidateDoctorCacheSafely();
 
   return res.status(201).json({
     success: true,
@@ -533,6 +559,7 @@ const updateAdminDoctor = asyncHandler(async (req, res) => {
   if (!doctor) {
     throw createError('Doctor not found', 404);
   }
+  invalidateDoctorCacheSafely();
 
   return res.status(200).json({
     success: true,
@@ -551,6 +578,7 @@ const deleteAdminDoctor = asyncHandler(async (req, res) => {
   if (!doctor) {
     throw createError('Doctor not found', 404);
   }
+  invalidateDoctorCacheSafely();
 
   return res.status(200).json({
     success: true,
@@ -576,6 +604,7 @@ const verifyAdminDoctor = asyncHandler(async (req, res) => {
   if (!doctor) {
     throw createError('Doctor not found', 404);
   }
+  invalidateDoctorCacheSafely();
 
   return res.status(200).json({
     success: true,
@@ -601,6 +630,7 @@ const unverifyAdminDoctor = asyncHandler(async (req, res) => {
   if (!doctor) {
     throw createError('Doctor not found', 404);
   }
+  invalidateDoctorCacheSafely();
 
   return res.status(200).json({
     success: true,
@@ -689,6 +719,7 @@ const createAdminArticle = asyncHandler(async (req, res) => {
 
   const article = await Article.create(payload);
   rebuildArticleTrieSafely();
+  invalidateArticleCacheSafely();
 
   return res.status(201).json({
     success: true,
@@ -740,6 +771,7 @@ const updateAdminArticle = asyncHandler(async (req, res) => {
   }
 
   rebuildArticleTrieSafely();
+  invalidateArticleCacheSafely();
 
   return res.status(200).json({
     success: true,
@@ -760,6 +792,7 @@ const deleteAdminArticle = asyncHandler(async (req, res) => {
   }
 
   rebuildArticleTrieSafely();
+  invalidateArticleCacheSafely();
 
   return res.status(200).json({
     success: true,
@@ -788,6 +821,7 @@ const updateAdminArticleFlag = (field, value, message) =>
     }
 
     rebuildArticleTrieSafely();
+    invalidateArticleCacheSafely();
 
     return res.status(200).json({
       success: true,
@@ -824,6 +858,7 @@ const unfeatureAdminArticle = updateAdminArticleFlag(
 
 const refreshAdminArticleSearch = asyncHandler(async (req, res) => {
   await buildArticleTrie();
+  await invalidateArticleCache();
 
   return res.status(200).json({
     success: true,
@@ -1559,6 +1594,7 @@ const seedAdminDoctorsTool = asyncHandler(async (req, res) => {
   ensureSeedToolsAllowed();
 
   const data = await seedDoctors({ manageConnection: false });
+  invalidateDoctorCacheSafely();
 
   return res.status(200).json({
     success: true,
@@ -1571,6 +1607,8 @@ const seedAdminArticlesTool = asyncHandler(async (req, res) => {
   ensureSeedToolsAllowed();
 
   const data = await seedArticles({ manageConnection: false });
+  rebuildArticleTrieSafely();
+  invalidateArticleCacheSafely();
 
   return res.status(200).json({
     success: true,
@@ -1591,6 +1629,7 @@ const exportAdminToolsArticlesCsv = asyncHandler(async (req, res) => {
 
 const refreshAdminToolsArticleTrie = asyncHandler(async (req, res) => {
   await buildArticleTrie();
+  await invalidateArticleCache();
 
   return res.status(200).json({
     success: true,

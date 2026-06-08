@@ -2,6 +2,9 @@ const mongoose = require('mongoose');
 const Doctor = require('../models/Doctor');
 const asyncHandler = require('../middleware/asyncHandler');
 const { successResponse } = require('../utils/apiResponse');
+const { cacheKeys, deleteByPattern, getCache, setCache } = require('../utils/cache');
+
+const DOCTORS_CACHE_TTL_SECONDS = 5 * 60;
 
 const allowedFields = [
   'user',
@@ -68,18 +71,46 @@ const buildFilters = (query) => {
   return filters;
 };
 
+const getStableQueryKey = (query) => {
+  const entries = Object.keys(query)
+    .sort()
+    .map((key) => [key, query[key]]);
+
+  return JSON.stringify(entries);
+};
+
+const getDoctorsCacheKey = (query) => {
+  const queryKey = getStableQueryKey(query);
+
+  return queryKey === '[]'
+    ? cacheKeys.doctorsList
+    : `${cacheKeys.doctorsList}:${queryKey}`;
+};
+
+const invalidateDoctorCacheSafely = () => {
+  deleteByPattern(`${cacheKeys.doctorsList}*`).catch((error) => {
+    console.error(`Doctor cache invalidation failed: ${error.message}`);
+  });
+};
+
 const getDoctors = asyncHandler(async (req, res) => {
   const page = Math.max(Number(req.query.page) || 1, 1);
   const limit = Math.min(Math.max(Number(req.query.limit) || 50, 1), 100);
   const skip = (page - 1) * limit;
   const filters = buildFilters(req.query);
+  const cacheKey = getDoctorsCacheKey(req.query);
+  const cachedData = await getCache(cacheKey);
+
+  if (cachedData) {
+    return successResponse(res, 200, 'Doctors fetched successfully', cachedData);
+  }
 
   const [doctors, total] = await Promise.all([
-    Doctor.find(filters).sort({ rating: -1, name: 1 }).skip(skip).limit(limit),
+    Doctor.find(filters).sort({ rating: -1, name: 1 }).skip(skip).limit(limit).lean(),
     Doctor.countDocuments(filters)
   ]);
 
-  return successResponse(res, 200, 'Doctors fetched successfully', {
+  const data = {
     doctors,
     pagination: {
       page,
@@ -87,7 +118,11 @@ const getDoctors = asyncHandler(async (req, res) => {
       total,
       pages: Math.ceil(total / limit)
     }
-  });
+  };
+
+  await setCache(cacheKey, data, DOCTORS_CACHE_TTL_SECONDS);
+
+  return successResponse(res, 200, 'Doctors fetched successfully', data);
 });
 
 const getDoctorById = asyncHandler(async (req, res) => {
@@ -117,6 +152,7 @@ const createDoctor = asyncHandler(async (req, res) => {
 
   const payload = pickDoctorFields(req.body);
   const doctor = await Doctor.create(payload);
+  invalidateDoctorCacheSafely();
 
   return successResponse(res, 201, 'Doctor created successfully', {
     doctor
@@ -136,6 +172,7 @@ const updateDoctor = asyncHandler(async (req, res) => {
   if (!doctor) {
     throw createError('Doctor not found', 404);
   }
+  invalidateDoctorCacheSafely();
 
   return successResponse(res, 200, 'Doctor updated successfully', {
     doctor
@@ -151,6 +188,7 @@ const deleteDoctor = asyncHandler(async (req, res) => {
   if (!doctor) {
     throw createError('Doctor not found', 404);
   }
+  invalidateDoctorCacheSafely();
 
   return successResponse(res, 200, 'Doctor deleted successfully', {
     id: req.params.id
