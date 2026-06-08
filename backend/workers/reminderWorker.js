@@ -9,7 +9,7 @@ const { connectRedis, closeRedis } = require('../config/redis');
 const connection = require('../queues/connection');
 const queueNames = require('../queues/queueNames');
 const Reminder = require('../models/Reminder');
-const Notification = require('../models/Notification');
+const { enqueueNotification } = require('../queues/producers/notificationProducer');
 
 const MISSED_GRACE_MS = 60 * 60 * 1000;
 
@@ -23,8 +23,8 @@ const isStaleOneTimeReminder = (reminder) => {
   return Date.now() - new Date(reminder.scheduledAt).getTime() > MISSED_GRACE_MS;
 };
 
-const createReminderNotification = (reminder) => {
-  return Notification.create({
+const enqueueReminderNotification = (reminder) => {
+  return enqueueNotification({
     user: reminder.user,
     title: reminder.title,
     message: reminder.message || 'You have a reminder due now.',
@@ -60,7 +60,7 @@ const processReminderJob = async (job) => {
     return { skipped: true, reason: 'missed' };
   }
 
-  await createReminderNotification(reminder);
+  await enqueueReminderNotification(reminder);
 
   if (!isRepeatReminder(reminder)) {
     reminder.status = 'completed';
