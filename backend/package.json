@@ -12,7 +12,8 @@
     "seed:articles": "node scripts/seedArticles.js",
     "worker:reminders": "node workers/reminderWorker.js",
     "worker:notifications": "node workers/notificationWorker.js",
-    "consumer:audit": "node consumers/auditConsumer.js"
+    "consumer:audit": "node consumers/auditConsumer.js",
+    "consumer:analytics": "node consumers/analyticsConsumer.js"
   },
   "keywords": [
     "shecare",

@@ -11,5 +11,6 @@ module.exports = {
   Prescription: require('./Prescription'),
   PCOSAssessment: require('./PCOSAssessment'),
   Article: require('./Article'),
-  AuditLog: require('./AuditLog')
+  AuditLog: require('./AuditLog'),
+  AnalyticsEvent: require('./AnalyticsEvent')
 };
