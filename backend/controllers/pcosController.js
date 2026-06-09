@@ -3,6 +3,8 @@ const PCOSAssessment = require('../models/PCOSAssessment');
 const asyncHandler = require('../middleware/asyncHandler');
 const { successResponse } = require('../utils/apiResponse');
 const { cacheKeys, deleteCache } = require('../utils/cache');
+const kafkaTopics = require('../kafka/topics');
+const { emitKafkaEventSafely } = require('../kafka/eventPublisher');
 
 const createError = (message, statusCode) => {
   const error = new Error(message);
@@ -29,6 +31,20 @@ const getMlServiceUrl = () => {
 const invalidateAdminAnalyticsCacheSafely = () => {
   deleteCache(cacheKeys.adminAnalyticsOverview).catch((error) => {
     console.error(`Admin analytics cache invalidation failed: ${error.message}`);
+  });
+};
+
+const emitPcosAssessmentCompleted = (assessment, user) => {
+  emitKafkaEventSafely(kafkaTopics.PCOS_EVENTS, {
+    eventType: 'pcos.assessment.completed',
+    entityId: assessment._id,
+    userId: assessment.user,
+    role: user?.role,
+    payload: {
+      riskLevel: assessment.result?.risk_level,
+      confidence: assessment.result?.confidence,
+      createdAt: assessment.createdAt
+    }
   });
 };
 
@@ -60,6 +76,7 @@ const predictPcos = asyncHandler(async (req, res) => {
     result: prediction
   });
   invalidateAdminAnalyticsCacheSafely();
+  emitPcosAssessmentCompleted(assessment, req.user);
 
   return successResponse(res, 201, 'PCOS assessment completed successfully', {
     assessment

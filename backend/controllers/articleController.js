@@ -11,6 +11,8 @@ const {
   getCache,
   setCache
 } = require('../utils/cache');
+const kafkaTopics = require('../kafka/topics');
+const { emitKafkaEventSafely } = require('../kafka/eventPublisher');
 
 const ARTICLE_LIST_CACHE_TTL_SECONDS = 10 * 60;
 const ARTICLE_DETAIL_CACHE_TTL_SECONDS = 10 * 60;
@@ -89,6 +91,29 @@ const invalidateArticleCacheSafely = () => {
 const invalidateAdminAnalyticsCacheSafely = () => {
   deleteCache(cacheKeys.adminAnalyticsOverview).catch((error) => {
     console.error(`Admin analytics cache invalidation failed: ${error.message}`);
+  });
+};
+
+const getArticleEventPayload = (article, extra = {}) => ({
+  slug: article.slug,
+  title: article.title,
+  category: article.category,
+  tags: article.tags || [],
+  isPublished: article.isPublished,
+  featured: article.featured,
+  ...extra
+});
+
+const emitArticleEvent = (eventType, article, actor, extra = {}) => {
+  emitKafkaEventSafely(kafkaTopics.ARTICLE_EVENTS, {
+    eventType,
+    entityId: article._id,
+    userId: actor?._id,
+    role: actor?.role,
+    payload: {
+      actorId: actor?._id,
+      ...getArticleEventPayload(article, extra)
+    }
   });
 };
 
@@ -279,6 +304,10 @@ const getArticleBySlug = asyncHandler(async (req, res) => {
   await setCache(cacheKey, article, ARTICLE_DETAIL_CACHE_TTL_SECONDS);
 
   await Article.updateOne({ _id: article._id }, { $inc: { views: 1 } });
+  emitArticleEvent('article.viewed', article, req.user, {
+    viewerId: req.user?._id,
+    source: 'article_detail'
+  });
 
   return res.status(200).json({
     success: true,
@@ -296,6 +325,7 @@ const createArticle = asyncHandler(async (req, res) => {
   rebuildArticleTrieSafely();
   invalidateArticleCacheSafely();
   invalidateAdminAnalyticsCacheSafely();
+  emitArticleEvent('article.created', article, req.user);
 
   return res.status(201).json({
     success: true,
@@ -325,6 +355,7 @@ const updateArticle = asyncHandler(async (req, res) => {
   rebuildArticleTrieSafely();
   invalidateArticleCacheSafely();
   invalidateAdminAnalyticsCacheSafely();
+  emitArticleEvent('article.updated', article, req.user);
 
   return res.status(200).json({
     success: true,

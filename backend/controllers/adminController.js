@@ -313,6 +313,44 @@ const emitAdminUserEvent = (req, eventType, user, payload = {}) => {
   });
 };
 
+const getArticleEventPayload = (article, extra = {}) => ({
+  slug: article.slug,
+  title: article.title,
+  category: article.category,
+  tags: article.tags || [],
+  isPublished: article.isPublished,
+  featured: article.featured,
+  ...extra
+});
+
+const emitArticleEvent = (req, eventType, article, extra = {}) => {
+  emitKafkaEventSafely(kafkaTopics.ARTICLE_EVENTS, {
+    eventType,
+    entityId: article._id,
+    userId: req.user?._id,
+    role: req.user?.role,
+    payload: {
+      actorId: req.user?._id,
+      actorRole: req.user?.role,
+      ...getArticleEventPayload(article, extra)
+    }
+  });
+};
+
+const emitAdminEvent = (req, eventType, entityId, payload = {}) => {
+  emitKafkaEventSafely(kafkaTopics.ADMIN_EVENTS, {
+    eventType,
+    entityId,
+    userId: req.user?._id,
+    role: req.user?.role,
+    payload: {
+      actorId: req.user?._id,
+      actorRole: req.user?.role,
+      ...payload
+    }
+  });
+};
+
 const getArticleMlServiceUrl = () => {
   return (process.env.ARTICLE_ML_SERVICE_URL || 'http://localhost:8002').replace(
     /\/$/,
@@ -613,6 +651,12 @@ const deleteAdminDoctor = asyncHandler(async (req, res) => {
     throw createError('Doctor not found', 404);
   }
   invalidateDoctorCacheSafely();
+  emitAdminEvent(req, 'admin.doctor.verified', doctor._id, {
+    doctorId: doctor._id,
+    doctorName: doctor.name,
+    specialization: doctor.specialization,
+    isVerified: doctor.isVerified
+  });
 
   return res.status(200).json({
     success: true,
@@ -755,6 +799,7 @@ const createAdminArticle = asyncHandler(async (req, res) => {
   rebuildArticleTrieSafely();
   invalidateArticleCacheSafely();
   invalidateAdminAnalyticsCacheSafely();
+  emitArticleEvent(req, 'article.created', article);
 
   return res.status(201).json({
     success: true,
@@ -808,6 +853,7 @@ const updateAdminArticle = asyncHandler(async (req, res) => {
   rebuildArticleTrieSafely();
   invalidateArticleCacheSafely();
   invalidateAdminAnalyticsCacheSafely();
+  emitArticleEvent(req, 'article.updated', article);
 
   return res.status(200).json({
     success: true,
@@ -860,6 +906,14 @@ const updateAdminArticleFlag = (field, value, message) =>
     rebuildArticleTrieSafely();
     invalidateArticleCacheSafely();
     invalidateAdminAnalyticsCacheSafely();
+
+    if (field === 'isPublished') {
+      emitArticleEvent(
+        req,
+        value ? 'article.published' : 'article.unpublished',
+        article
+      );
+    }
 
     return res.status(200).json({
       success: true,
@@ -1679,6 +1733,10 @@ const seedAdminDoctorsTool = asyncHandler(async (req, res) => {
 
   const data = await seedDoctors({ manageConnection: false });
   invalidateDoctorCacheSafely();
+  emitAdminEvent(req, 'admin.tool.executed', 'seed-doctors', {
+    tool: 'seed-doctors',
+    result: data
+  });
 
   return res.status(200).json({
     success: true,
@@ -1693,6 +1751,10 @@ const seedAdminArticlesTool = asyncHandler(async (req, res) => {
   const data = await seedArticles({ manageConnection: false });
   rebuildArticleTrieSafely();
   invalidateArticleCacheSafely();
+  emitAdminEvent(req, 'admin.tool.executed', 'seed-articles', {
+    tool: 'seed-articles',
+    result: data
+  });
 
   return res.status(200).json({
     success: true,
@@ -1703,6 +1765,10 @@ const seedAdminArticlesTool = asyncHandler(async (req, res) => {
 
 const exportAdminToolsArticlesCsv = asyncHandler(async (req, res) => {
   const data = await exportPublishedArticlesCsv();
+  emitAdminEvent(req, 'admin.tool.executed', 'export-articles-csv', {
+    tool: 'export-articles-csv',
+    result: data
+  });
 
   return res.status(200).json({
     success: true,
@@ -1714,6 +1780,12 @@ const exportAdminToolsArticlesCsv = asyncHandler(async (req, res) => {
 const refreshAdminToolsArticleTrie = asyncHandler(async (req, res) => {
   await buildArticleTrie();
   await invalidateArticleCache();
+  emitAdminEvent(req, 'admin.tool.executed', 'refresh-article-trie', {
+    tool: 'refresh-article-trie',
+    result: {
+      refreshed: true
+    }
+  });
 
   return res.status(200).json({
     success: true,
@@ -1727,6 +1799,10 @@ const refreshAdminToolsArticleTrie = asyncHandler(async (req, res) => {
 const retrainAdminToolsArticleRecommender = asyncHandler(async (req, res) => {
   try {
     const data = await triggerArticleRecommenderRetrain();
+    emitAdminEvent(req, 'admin.tool.executed', 'retrain-article-recommender', {
+      tool: 'retrain-article-recommender',
+      result: data
+    });
 
     return res.status(200).json({
       success: true,
@@ -1734,6 +1810,13 @@ const retrainAdminToolsArticleRecommender = asyncHandler(async (req, res) => {
       data
     });
   } catch (error) {
+    emitAdminEvent(req, 'admin.tool.executed', 'retrain-article-recommender', {
+      tool: 'retrain-article-recommender',
+      result: {
+        available: false
+      }
+    });
+
     return res.status(202).json({
       success: true,
       message:
