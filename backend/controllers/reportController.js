@@ -4,6 +4,8 @@ const mongoose = require('mongoose');
 const Report = require('../models/Report');
 const asyncHandler = require('../middleware/asyncHandler');
 const { successResponse } = require('../utils/apiResponse');
+const kafkaTopics = require('../kafka/topics');
+const { emitKafkaEventSafely } = require('../kafka/eventPublisher');
 
 const allowedMimeTypes = new Set(['application/pdf', 'image/jpeg', 'image/png']);
 
@@ -53,6 +55,23 @@ const removeLocalFile = async (filePath) => {
   }
 };
 
+const emitReportEvent = (eventType, report, actor) => {
+  emitKafkaEventSafely(kafkaTopics.REPORT_EVENTS, {
+    eventType,
+    entityId: report._id,
+    userId: report.user,
+    role: actor?.role,
+    payload: {
+      actorId: actor?._id,
+      title: report.title,
+      category: report.category,
+      mimeType: report.mimeType,
+      size: report.size,
+      fileName: report.fileName
+    }
+  });
+};
+
 const uploadReport = asyncHandler(async (req, res) => {
   if (!req.file) {
     throw createError('Report file is required', 400);
@@ -77,6 +96,7 @@ const uploadReport = asyncHandler(async (req, res) => {
     path: req.file.path,
     notes: req.body.notes
   });
+  emitReportEvent('report.uploaded', report, req.user);
 
   return successResponse(res, 201, 'Report uploaded successfully', {
     report
@@ -135,6 +155,7 @@ const deleteReport = asyncHandler(async (req, res) => {
   }
 
   await removeLocalFile(report.path);
+  emitReportEvent('report.deleted', report, req.user);
 
   return successResponse(res, 200, 'Report deleted successfully', {
     id: req.params.id

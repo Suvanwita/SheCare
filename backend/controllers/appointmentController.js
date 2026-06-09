@@ -4,6 +4,8 @@ const Doctor = require('../models/Doctor');
 const Notification = require('../models/Notification');
 const asyncHandler = require('../middleware/asyncHandler');
 const { successResponse } = require('../utils/apiResponse');
+const kafkaTopics = require('../kafka/topics');
+const { emitKafkaEventSafely } = require('../kafka/eventPublisher');
 
 const activeStatuses = ['pending', 'confirmed'];
 const validStatuses = ['pending', 'confirmed', 'completed', 'cancelled'];
@@ -44,6 +46,23 @@ const createAppointmentNotification = (userId, appointment, title, message, acti
       date: appointment.date,
       slot: appointment.slot,
       status: appointment.status
+    }
+  });
+};
+
+const emitAppointmentEvent = (eventType, appointment, actor) => {
+  emitKafkaEventSafely(kafkaTopics.APPOINTMENT_EVENTS, {
+    eventType,
+    entityId: appointment._id,
+    userId: appointment.user,
+    role: actor?.role,
+    payload: {
+      actorId: actor?._id,
+      doctorId: appointment.doctor?._id || appointment.doctor,
+      date: appointment.date,
+      slot: appointment.slot,
+      status: appointment.status,
+      appointmentType: appointment.appointmentType
     }
   });
 };
@@ -127,6 +146,7 @@ const createAppointment = asyncHandler(async (req, res) => {
     `Your appointment with ${doctor.name} is pending confirmation.`,
     'booked'
   );
+  emitAppointmentEvent('appointment.booked', populatedAppointment, req.user);
 
   return successResponse(res, 201, 'Appointment booked successfully', {
     appointment: populatedAppointment
@@ -196,6 +216,13 @@ const updateAppointmentStatus = asyncHandler(async (req, res) => {
     `Your appointment with ${appointment.doctor.name} is now ${status}.`,
     'status_updated'
   );
+  emitAppointmentEvent(
+    status === 'cancelled'
+      ? 'appointment.cancelled'
+      : 'appointment.status_updated',
+    appointment,
+    req.user
+  );
 
   return successResponse(res, 200, 'Appointment status updated successfully', {
     appointment
@@ -219,6 +246,7 @@ const deleteAppointment = asyncHandler(async (req, res) => {
   }
 
   await appointment.deleteOne();
+  emitAppointmentEvent('appointment.cancelled', appointment, req.user);
 
   return successResponse(res, 200, 'Appointment deleted successfully', {
     id: req.params.id

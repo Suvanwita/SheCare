@@ -8,6 +8,8 @@ const {
   cancelReminderJob,
   rescheduleReminderJob
 } = require('../queues/producers/reminderProducer');
+const kafkaTopics = require('../kafka/topics');
+const { emitKafkaEventSafely } = require('../kafka/eventPublisher');
 
 const allowedFields = ['title', 'type', 'message', 'scheduledAt', 'repeat', 'priority', 'status'];
 
@@ -88,6 +90,23 @@ const createReminderNotification = (userId, reminder, title, message, action) =>
   });
 };
 
+const emitReminderEvent = (eventType, reminder, actor) => {
+  emitKafkaEventSafely(kafkaTopics.REMINDER_EVENTS, {
+    eventType,
+    entityId: reminder._id,
+    userId: reminder.user,
+    role: actor?.role,
+    payload: {
+      actorId: actor?._id,
+      title: reminder.title,
+      type: reminder.type,
+      scheduledAt: reminder.scheduledAt,
+      repeat: reminder.repeat,
+      status: reminder.status
+    }
+  });
+};
+
 const createReminder = asyncHandler(async (req, res) => {
   if (!req.body.title) {
     throw createError('Title is required', 400);
@@ -117,6 +136,7 @@ const createReminder = asyncHandler(async (req, res) => {
     'created'
   );
   await scheduleReminderJob(reminder);
+  emitReminderEvent('reminder.created', reminder, req.user);
 
   return successResponse(res, 201, 'Reminder created successfully', {
     reminder
@@ -188,6 +208,7 @@ const deleteReminder = asyncHandler(async (req, res) => {
     throw createError('Reminder not found', 404);
   }
   await cancelReminderJob(reminder._id);
+  emitReminderEvent('reminder.deleted', reminder, req.user);
 
   return successResponse(res, 200, 'Reminder deleted successfully', {
     id: req.params.id
@@ -223,6 +244,7 @@ const completeReminder = asyncHandler(async (req, res) => {
     reminder.message || 'Reminder marked as completed.',
     'completed'
   );
+  emitReminderEvent('reminder.completed', reminder, req.user);
 
   return successResponse(res, 200, 'Reminder marked complete successfully', {
     reminder
