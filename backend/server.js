@@ -21,6 +21,7 @@ const pcosRoutes = require('./routes/pcosRoutes');
 const analyticsRoutes = require('./routes/analyticsRoutes');
 const articleRoutes = require('./routes/articleRoutes');
 const adminRoutes = require('./routes/adminRoutes');
+const timelineRoutes = require('./routes/timelineRoutes');
 const { notFound, errorHandler } = require('./middleware/errorMiddleware');
 const {
   generalApiRateLimiter,
@@ -74,6 +75,7 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/pcos', pcosRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/articles', articleRoutes);
+app.use('/api/timeline', timelineRoutes);
 app.use('/api/admin', adminRoutes);
 
 app.use(notFound);

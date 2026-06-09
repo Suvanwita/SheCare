@@ -7,6 +7,7 @@ import {
   ClipboardList,
   BookOpen,
   FileText,
+  History,
   LayoutDashboard,
   ShieldAlert,
   type LucideIcon,
@@ -26,6 +27,7 @@ export const DASHBOARD_NAVIGATION: DashboardNavigationItem[] = [
   { title: "Reminders", href: "/dashboard/reminders", icon: Bell },
   { title: "Appointments", href: "/dashboard/appointments", icon: CalendarCheck },
   { title: "Reports", href: "/dashboard/reports", icon: FileText },
+  { title: "Timeline", href: "/dashboard/timeline", icon: History },
   { title: "Analytics", href: "/dashboard/analytics", icon: BarChart3 },
   { title: "PCOS Risk", href: "/dashboard/pcos-risk", icon: ShieldAlert },
 ];
@@ -74,6 +76,11 @@ export const DASHBOARD_ROUTE_SUMMARIES: Record<string, { title: string; descript
     title: "Analytics",
     description: "Explore cycle, symptom, sleep, activity, and stress trends across time.",
     icon: BarChart3,
+  },
+  "/dashboard/timeline": {
+    title: "Timeline",
+    description: "Review your recent health activity across appointments, reminders, reports, and education.",
+    icon: History,
   },
   "/dashboard/pcos-risk": {
     title: "PCOS Risk",
