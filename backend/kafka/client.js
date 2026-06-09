@@ -10,7 +10,12 @@ const parseBrokers = (value) => {
 const kafka = new Kafka({
   clientId: process.env.KAFKA_CLIENT_ID || 'shecare-backend',
   brokers: parseBrokers(process.env.KAFKA_BROKERS),
-  logLevel: logLevel.INFO
+  connectionTimeout: Number(process.env.KAFKA_CONNECTION_TIMEOUT_MS) || 5000,
+  requestTimeout: Number(process.env.KAFKA_REQUEST_TIMEOUT_MS) || 30000,
+  retry: {
+    retries: Number(process.env.KAFKA_RETRIES) || 3
+  },
+  logLevel: process.env.NODE_ENV === 'production' ? logLevel.WARN : logLevel.INFO
 });
 
 module.exports = kafka;

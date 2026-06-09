@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const User = require('../models/User');
 const Session = require('../models/Session');
 const asyncHandler = require('../middleware/asyncHandler');
@@ -37,10 +38,13 @@ const getRefreshTokenExpiry = (refreshToken) => {
   return new Date(Date.now() + fallbackDays * 24 * 60 * 60 * 1000);
 };
 
+const hashRefreshToken = (refreshToken) =>
+  crypto.createHash('sha256').update(refreshToken).digest('hex');
+
 const saveSession = async (req, user, refreshToken) => {
   return Session.create({
     user: user._id,
-    refreshToken,
+    refreshToken: hashRefreshToken(refreshToken),
     userAgent: req.get('user-agent'),
     ipAddress: req.ip,
     expiresAt: getRefreshTokenExpiry(refreshToken)
@@ -169,7 +173,7 @@ const refresh = asyncHandler(async (req, res) => {
   }
 
   const session = await Session.findOne({
-    refreshToken,
+    refreshToken: hashRefreshToken(refreshToken),
     isRevoked: false,
     expiresAt: { $gt: new Date() }
   }).populate('user');
@@ -195,7 +199,7 @@ const logout = asyncHandler(async (req, res) => {
 
   if (refreshToken) {
     await Session.findOneAndUpdate(
-      { refreshToken },
+      { refreshToken: hashRefreshToken(refreshToken) },
       { isRevoked: true },
       { new: true }
     );

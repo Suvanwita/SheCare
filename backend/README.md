@@ -8,18 +8,29 @@ Create `backend/.env`:
 
 ```env
 PORT=5000
+NODE_ENV=development
 MONGO_URI=mongodb://127.0.0.1:27017/shecare
 JWT_ACCESS_SECRET=your_access_secret
 JWT_REFRESH_SECRET=your_refresh_secret
 CLIENT_URL=http://localhost:3000
+CLIENT_URLS=http://localhost:3000
+TRUST_PROXY=0
+JSON_BODY_LIMIT=1mb
 ML_SERVICE_URL=http://localhost:8000
 ARTICLE_ML_SERVICE_URL=http://localhost:8002
 ALLOW_ADMIN_SEED_TOOLS=false
 REDIS_HOST=localhost
 REDIS_PORT=6379
 REDIS_URL=redis://localhost:6379
+REDIS_CONNECT_TIMEOUT_MS=10000
+REDIS_MAX_RETRIES_PER_REQUEST=2
 KAFKA_CLIENT_ID=shecare-backend
 KAFKA_BROKERS=localhost:9092
+KAFKA_CONNECTION_TIMEOUT_MS=5000
+KAFKA_REQUEST_TIMEOUT_MS=30000
+KAFKA_RETRIES=3
+MONGO_MAX_POOL_SIZE=20
+MONGO_SERVER_SELECTION_TIMEOUT_MS=10000
 ```
 
 Optional auth expiry vars default in code:
@@ -190,6 +201,60 @@ Admin audit-style events include request metadata when available:
   before workers.
 - Local Kafka listeners: the compose file advertises `localhost:9092`, so backend
   scripts should be run on the host machine, not from another container.
+
+## Production Readiness
+
+Before deploying, set production-safe values:
+
+```env
+NODE_ENV=production
+MONGO_URI=mongodb+srv://...
+JWT_ACCESS_SECRET=<32+ character random secret>
+JWT_REFRESH_SECRET=<different 32+ character random secret>
+CLIENT_URL=https://app.example.com
+CLIENT_URLS=https://app.example.com,https://admin.example.com
+TRUST_PROXY=1
+REDIS_URL=rediss://...
+KAFKA_BROKERS=broker-1:9092,broker-2:9092
+```
+
+Production safeguards currently in place:
+
+- Startup validates required environment variables and rejects placeholder JWT secrets.
+- MongoDB startup fails fast instead of silently continuing after connection errors.
+- Refresh tokens are hashed before being stored in `Session` documents.
+- Express disables `x-powered-by`, adds request IDs, uses Helmet, enforces JSON body limits, and hides internal 500-level error messages in production.
+- `/health` reports liveness, while `/readyz` reports MongoDB and Redis readiness.
+- Kafka emits are non-blocking for API requests and log warnings when brokers are unavailable.
+- Redis cache failures fail open with logs; BullMQ queue scheduling failures return `503` because work could not be safely queued.
+- Server shutdown closes Kafka producer, BullMQ queues, Redis, rate-limit stores, and MongoDB-backed processes.
+- Workers and Kafka consumers validate env on startup and close their connections on `SIGINT`/`SIGTERM`.
+- Docker Compose infrastructure services have healthchecks, restart policies, and bounded log files.
+
+Recommended production process model:
+
+```bash
+npm run start
+npm run worker:reminders
+npm run worker:notifications
+npm run consumer:audit
+npm run consumer:analytics
+```
+
+Run each command as a separately supervised process, for example with your cloud
+platform process manager, Kubernetes Deployments, systemd, or PM2. Do not start
+workers or consumers from `server.js`; they are intentionally separate so API
+traffic and background work can scale independently.
+
+Operational checklist:
+
+- Run `npm ci --omit=dev` for backend production installs.
+- Run `npm run kafka:init` during deployment after Kafka is reachable.
+- Verify `/readyz` returns `200` before routing traffic.
+- Store uploaded report files on durable storage or mount `backend/uploads` to a persistent volume.
+- Keep MongoDB, Redis, and Kafka outside this local compose file for real production unless the environment is intentionally single-host.
+- Enable provider-level TLS, backups, metrics, and alerts for MongoDB, Redis, Kafka, API, workers, and consumers.
+- Keep `ALLOW_ADMIN_SEED_TOOLS=false` in production unless a controlled maintenance window requires it.
 
 ## Auth Flow
 

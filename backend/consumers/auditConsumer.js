@@ -4,6 +4,7 @@ dotenv.config();
 
 const mongoose = require('mongoose');
 const connectDB = require('../config/db');
+const { validateEnv } = require('../config/env');
 const AuditLog = require('../models/AuditLog');
 const { connectConsumer } = require('../kafka/consumer');
 const kafkaTopics = require('../kafka/topics');
@@ -73,6 +74,7 @@ const handleAuditMessage = async ({ topic, message }) => {
 };
 
 const startAuditConsumer = async () => {
+  validateEnv();
   await connectDB();
 
   const consumer = await connectConsumer({

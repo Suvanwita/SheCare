@@ -3,12 +3,14 @@ const dotenv = require('dotenv');
 
 dotenv.config();
 
+const mongoose = require('mongoose');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const cookieParser = require('cookie-parser');
 const connectDB = require('./config/db');
 const { connectRedis, closeRedis } = require('./config/redis');
+const { getAllowedOrigins, isProduction, validateEnv } = require('./config/env');
 const authRoutes = require('./routes/authRoutes');
 const cycleRoutes = require('./routes/cycleRoutes');
 const healthLogRoutes = require('./routes/healthLogRoutes');
@@ -22,7 +24,7 @@ const analyticsRoutes = require('./routes/analyticsRoutes');
 const articleRoutes = require('./routes/articleRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const timelineRoutes = require('./routes/timelineRoutes');
-const { notFound, errorHandler } = require('./middleware/errorMiddleware');
+const { requestId, notFound, errorHandler } = require('./middleware/errorMiddleware');
 const {
   generalApiRateLimiter,
   closeRateLimitStores
@@ -33,10 +35,12 @@ const { buildArticleTrie } = require('./utils/trie/articleTrie');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:3000';
-const allowedOrigins = new Set([CLIENT_URL, 'http://localhost:3000']);
+const allowedOrigins = getAllowedOrigins();
 
-app.use(express.json());
+app.disable('x-powered-by');
+app.set('trust proxy', Number(process.env.TRUST_PROXY) || (isProduction ? 1 : 0));
+app.use(requestId);
+app.use(express.json({ limit: process.env.JSON_BODY_LIMIT || '1mb' }));
 app.use(cookieParser());
 app.use(
   cors({
@@ -51,8 +55,12 @@ app.use(
     credentials: true
   })
 );
-app.use(helmet());
-app.use(morgan('dev'));
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: 'cross-origin' }
+  })
+);
+app.use(morgan(isProduction ? 'combined' : 'dev'));
 
 app.get('/health', (req, res) => {
   res.status(200).json({
@@ -62,6 +70,29 @@ app.get('/health', (req, res) => {
       timestamp: new Date().toISOString(),
       environment: process.env.NODE_ENV || 'development'
     }
+  });
+});
+
+app.get('/readyz', async (req, res) => {
+  const checks = {
+    mongo: mongoose.connection.readyState === 1 ? 'ready' : 'not_ready',
+    redis: 'unknown'
+  };
+
+  try {
+    const { redis } = require('./config/redis');
+    await redis.ping();
+    checks.redis = 'ready';
+  } catch (error) {
+    checks.redis = 'not_ready';
+  }
+
+  const ready = checks.mongo === 'ready' && checks.redis === 'ready';
+
+  res.status(ready ? 200 : 503).json({
+    success: ready,
+    message: ready ? 'SheCare backend is ready' : 'SheCare backend is not ready',
+    data: checks
   });
 });
 
@@ -84,6 +115,7 @@ app.use(notFound);
 app.use(errorHandler);
 
 const startServer = async () => {
+  validateEnv();
   await connectDB();
   await connectRedis();
 
@@ -111,6 +143,7 @@ const startServer = async () => {
       });
       await closeRateLimitStores();
       await closeRedis();
+      await mongoose.connection.close();
       process.exit(0);
     });
   };

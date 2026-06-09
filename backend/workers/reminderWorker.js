@@ -5,6 +5,7 @@ dotenv.config();
 const mongoose = require('mongoose');
 const { Worker } = require('bullmq');
 const connectDB = require('../config/db');
+const { validateEnv } = require('../config/env');
 const { connectRedis, closeRedis } = require('../config/redis');
 const connection = require('../queues/connection');
 const queueNames = require('../queues/queueNames');
@@ -74,6 +75,7 @@ const processReminderJob = async (job) => {
 };
 
 const startWorker = async () => {
+  validateEnv();
   await connectDB();
   await connectRedis();
 

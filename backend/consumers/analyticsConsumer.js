@@ -4,6 +4,7 @@ dotenv.config();
 
 const mongoose = require('mongoose');
 const connectDB = require('../config/db');
+const { validateEnv } = require('../config/env');
 const AnalyticsEvent = require('../models/AnalyticsEvent');
 const { connectConsumer } = require('../kafka/consumer');
 const kafkaTopics = require('../kafka/topics');
@@ -89,6 +90,7 @@ const handleAnalyticsMessage = async ({ topic, message }) => {
 };
 
 const startAnalyticsConsumer = async () => {
+  validateEnv();
   await connectDB();
 
   const consumer = await connectConsumer({

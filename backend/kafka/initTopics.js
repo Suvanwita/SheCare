@@ -4,11 +4,13 @@ dotenv.config();
 
 const kafka = require('./client');
 const kafkaTopics = require('./topics');
+const { validateEnv } = require('../config/env');
 
 const partitions = 3;
 const replicationFactor = 1;
 
 const initTopics = async () => {
+  validateEnv();
   const admin = kafka.admin();
   const topicNames = Object.values(kafkaTopics);
 
