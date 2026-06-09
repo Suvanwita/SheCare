@@ -34,10 +34,18 @@ const connectRedis = async () => {
 };
 
 const closeRedis = async () => {
-  if (redis.status !== 'end') {
-    await redis.quit();
-    console.log('Redis connection closed.');
+  if (redis.status === 'end') {
+    return;
   }
+
+  try {
+    await redis.quit();
+  } catch (error) {
+    console.error(`Redis graceful quit failed: ${error.message}`);
+    redis.disconnect();
+  }
+
+  console.log('Redis connection closed.');
 };
 
 module.exports = {

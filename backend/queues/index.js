@@ -30,9 +30,19 @@ const getQueue = (name) => {
   return queues[name];
 };
 
+const closeAllQueues = async () => {
+  await Promise.all(
+    Object.values(queues).map((queue) => queue.close())
+  );
+
+  const connection = require('./connection');
+  await connection.closeQueueConnection();
+};
+
 module.exports = {
   queueNames,
   defaultJobOptions,
+  closeAllQueues,
   get reminderQueue() {
     return getQueue(queueNames.reminderQueue);
   },

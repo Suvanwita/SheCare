@@ -51,10 +51,21 @@ const emitEvent = async (topic, event) => {
   return normalizedEvent;
 };
 
+const disconnectProducer = async () => {
+  if (!producer || !isProducerConnected) {
+    return;
+  }
+
+  await producer.disconnect();
+  isProducerConnected = false;
+  console.log('Kafka producer disconnected.');
+};
+
 module.exports = {
   get producer() {
     return getProducer();
   },
   connectProducer,
+  disconnectProducer,
   emitEvent
 };

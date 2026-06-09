@@ -27,6 +27,8 @@ const {
   generalApiRateLimiter,
   closeRateLimitStores
 } = require('./middleware/rateLimiter');
+const { disconnectProducer } = require('./kafka/producer');
+const { closeAllQueues } = require('./queues');
 const { buildArticleTrie } = require('./utils/trie/articleTrie');
 
 const app = express();
@@ -101,6 +103,12 @@ const startServer = async () => {
     console.log(`${signal} received. Shutting down SheCare backend.`);
 
     server.close(async () => {
+      await disconnectProducer().catch((error) => {
+        console.error(`Kafka producer disconnect failed: ${error.message}`);
+      });
+      await closeAllQueues().catch((error) => {
+        console.error(`Queue shutdown failed: ${error.message}`);
+      });
       await closeRateLimitStores();
       await closeRedis();
       process.exit(0);

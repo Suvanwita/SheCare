@@ -129,7 +129,7 @@ const startWorker = async () => {
   const shutdown = async (signal) => {
     console.log(`${signal} received. Shutting down notification worker.`);
     await worker.close();
-    await connection.quit();
+    await connection.closeQueueConnection();
     await closeRedis();
     await mongoose.connection.close();
     process.exit(0);
@@ -144,7 +144,7 @@ const startWorker = async () => {
 if (require.main === module) {
   startWorker().catch(async (error) => {
     console.error(`Notification worker startup failed: ${error.message}`);
-    await connection.quit().catch(() => null);
+    await connection.closeQueueConnection().catch(() => null);
     await closeRedis().catch(() => null);
     await mongoose.connection.close().catch(() => null);
     process.exit(1);

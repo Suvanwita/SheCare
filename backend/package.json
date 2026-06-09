@@ -5,7 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js",
+    "dev": "nodemon --signal SIGTERM server.js",
     "test": "node --test",
     "kafka:init": "node kafka/initTopics.js",
     "seed:doctors": "node scripts/seedDoctors.js",
