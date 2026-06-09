@@ -45,6 +45,7 @@ Redis, Zookeeper, and Kafka are defined in the root `docker-compose.yml`.
 
 ```bash
 docker compose up -d redis zookeeper kafka
+npm run kafka:init
 ```
 
 Local service endpoints:
