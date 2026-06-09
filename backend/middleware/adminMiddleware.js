@@ -1,5 +1,7 @@
 const AuditLog = require('../models/AuditLog');
 const mongoose = require('mongoose');
+const kafkaTopics = require('../kafka/topics');
+const { emitKafkaEventSafely } = require('../kafka/eventPublisher');
 
 const createError = (message, statusCode) => {
   const error = new Error(message);
@@ -36,7 +38,7 @@ const auditAdminWrites = (req, res, next) => {
       .filter(Boolean);
     const entity = pathSegments.slice(0, 2).join('/') || 'admin';
 
-    AuditLog.create({
+    const auditPayload = {
       user: req.user?._id,
       action: `admin:${req.method.toLowerCase()}`,
       entity,
@@ -50,8 +52,18 @@ const auditAdminWrites = (req, res, next) => {
       },
       ipAddress: req.ip,
       userAgent: req.get('user-agent')
-    }).catch((error) => {
+    };
+
+    AuditLog.create(auditPayload).catch((error) => {
       console.error(`Admin audit log failed: ${error.message}`);
+    });
+
+    emitKafkaEventSafely(kafkaTopics.AUDIT_EVENTS, {
+      eventType: 'audit.admin_write',
+      entityId: auditPayload.entityId,
+      userId: auditPayload.user,
+      role: req.user?.role,
+      payload: auditPayload
     });
   });
 

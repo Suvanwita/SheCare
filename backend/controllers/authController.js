@@ -5,6 +5,8 @@ const asyncHandler = require('../middleware/asyncHandler');
 const { generateAccessToken, generateTokens } = require('../utils/generateTokens');
 const { hashPassword, comparePassword } = require('../utils/passwordUtils');
 const { successResponse } = require('../utils/apiResponse');
+const kafkaTopics = require('../kafka/topics');
+const { emitKafkaEventSafely } = require('../kafka/eventPublisher');
 
 const refreshCookieOptions = {
   httpOnly: true,
@@ -52,6 +54,11 @@ const setRefreshTokenCookie = (res, refreshToken) => {
   });
 };
 
+const getRequestMetadata = (req) => ({
+  ipAddress: req.ip,
+  userAgent: req.get('user-agent')
+});
+
 const validateAuthFields = ({ fullName, email, password, role }, isRegister = false) => {
   if (isRegister && !fullName) {
     throw createError('Full name is required', 400);
@@ -91,6 +98,17 @@ const register = asyncHandler(async (req, res) => {
   const { accessToken, refreshToken } = generateTokens(user);
   await saveSession(req, user, refreshToken);
   setRefreshTokenCookie(res, refreshToken);
+  emitKafkaEventSafely(kafkaTopics.USER_EVENTS, {
+    eventType: 'user.registered',
+    entityId: user._id,
+    userId: user._id,
+    role: user.role,
+    payload: {
+      email: user.email,
+      fullName: user.fullName,
+      ...getRequestMetadata(req)
+    }
+  });
 
   return successResponse(res, 201, 'User registered successfully', {
     user: sanitizeUser(user),
@@ -120,6 +138,13 @@ const login = asyncHandler(async (req, res) => {
   user.lastLoginAt = new Date();
   await user.save();
   setRefreshTokenCookie(res, refreshToken);
+  emitKafkaEventSafely(kafkaTopics.USER_EVENTS, {
+    eventType: 'user.logged_in',
+    entityId: user._id,
+    userId: user._id,
+    role: user.role,
+    payload: getRequestMetadata(req)
+  });
 
   return successResponse(res, 200, 'Login successful', {
     user: sanitizeUser(user),
@@ -166,6 +191,7 @@ const refresh = asyncHandler(async (req, res) => {
 
 const logout = asyncHandler(async (req, res) => {
   const refreshToken = req.body.refreshToken || req.cookies.refreshToken;
+  const decoded = refreshToken ? jwt.decode(refreshToken) : null;
 
   if (refreshToken) {
     await Session.findOneAndUpdate(
@@ -176,6 +202,12 @@ const logout = asyncHandler(async (req, res) => {
   }
 
   res.clearCookie('refreshToken', refreshCookieOptions);
+  emitKafkaEventSafely(kafkaTopics.USER_EVENTS, {
+    eventType: 'user.logged_out',
+    entityId: decoded?.userId,
+    userId: decoded?.userId,
+    payload: getRequestMetadata(req)
+  });
 
   return successResponse(res, 200, 'Logout successful');
 });

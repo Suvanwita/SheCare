@@ -17,6 +17,8 @@ const { seedArticles } = require('../scripts/seedArticles');
 const { seedDoctors } = require('../scripts/seedDoctors');
 const { buildArticleTrie } = require('../utils/trie/articleTrie');
 const { enqueueNotification } = require('../queues/producers/notificationProducer');
+const kafkaTopics = require('../kafka/topics');
+const { emitKafkaEventSafely } = require('../kafka/eventPublisher');
 const {
   cacheKeys,
   deleteByPattern,
@@ -294,6 +296,20 @@ const invalidateAdminAnalyticsCache = () => {
 const invalidateAdminAnalyticsCacheSafely = () => {
   invalidateAdminAnalyticsCache().catch((error) => {
     console.error(`Admin analytics cache invalidation failed: ${error.message}`);
+  });
+};
+
+const emitAdminUserEvent = (req, eventType, user, payload = {}) => {
+  emitKafkaEventSafely(kafkaTopics.ADMIN_EVENTS, {
+    eventType,
+    entityId: user._id,
+    userId: user._id,
+    role: user.role,
+    payload: {
+      actorId: req.user?._id,
+      actorRole: req.user?.role,
+      ...payload
+    }
   });
 };
 
@@ -996,6 +1012,9 @@ const updateAdminUserRole = asyncHandler(async (req, res) => {
     throw createError('User not found', 404);
   }
   invalidateAdminAnalyticsCacheSafely();
+  emitAdminUserEvent(req, 'user.role_changed', user, {
+    newRole: user.role
+  });
 
   return res.status(200).json({
     success: true,
@@ -1052,6 +1071,10 @@ const deactivateAdminUser = asyncHandler(async (req, res) => {
   }
 
   await Session.updateMany({ user: req.params.id }, { isRevoked: true });
+  invalidateAdminAnalyticsCacheSafely();
+  emitAdminUserEvent(req, 'user.deactivated', user, {
+    sessionsRevoked: true
+  });
 
   return res.status(200).json({
     success: true,
@@ -1098,6 +1121,9 @@ const revokeAdminUserSessions = asyncHandler(async (req, res) => {
     { user: req.params.id, isRevoked: false },
     { isRevoked: true }
   );
+  emitAdminUserEvent(req, 'user.sessions_revoked', user, {
+    modifiedCount: result.modifiedCount || 0
+  });
 
   return res.status(200).json({
     success: true,
@@ -1128,7 +1154,19 @@ const deleteAdminUser = asyncHandler(async (req, res) => {
     throw createError('User not found', 404);
   }
 
-  await Session.updateMany({ user: req.params.id }, { isRevoked: true });
+  const sessionResult = await Session.updateMany(
+    { user: req.params.id },
+    { isRevoked: true }
+  );
+  invalidateAdminAnalyticsCacheSafely();
+  emitAdminUserEvent(req, 'user.deactivated', user, {
+    source: 'delete',
+    sessionsRevoked: true
+  });
+  emitAdminUserEvent(req, 'user.sessions_revoked', user, {
+    source: 'delete',
+    modifiedCount: sessionResult.modifiedCount || 0
+  });
 
   return res.status(200).json({
     success: true,
