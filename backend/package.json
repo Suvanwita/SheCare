@@ -11,7 +11,8 @@
     "seed:doctors": "node scripts/seedDoctors.js",
     "seed:articles": "node scripts/seedArticles.js",
     "worker:reminders": "node workers/reminderWorker.js",
-    "worker:notifications": "node workers/notificationWorker.js"
+    "worker:notifications": "node workers/notificationWorker.js",
+    "consumer:audit": "node consumers/auditConsumer.js"
   },
   "keywords": [
     "shecare",
