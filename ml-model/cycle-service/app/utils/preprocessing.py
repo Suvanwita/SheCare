@@ -86,6 +86,7 @@ def clean_column_names(df: pd.DataFrame) -> pd.DataFrame:
 
 def preprocess_cycle_dataframe(
     df: pd.DataFrame,
+    save_artifacts: bool = True,
 ) -> Tuple[pd.DataFrame, pd.Series, Dict[str, Any]]:
     cleaned_df = clean_column_names(df)
     target_source = _detect_target_column(cleaned_df)
@@ -126,8 +127,9 @@ def preprocess_cycle_dataframe(
         "feature_aliases": FEATURE_ALIASES,
     }
 
-    _save_json(FEATURE_COLUMNS_PATH, list(encoded_df.columns))
-    _save_json(PREPROCESSING_METADATA_PATH, metadata)
+    if save_artifacts:
+        _save_json(FEATURE_COLUMNS_PATH, list(encoded_df.columns))
+        _save_json(PREPROCESSING_METADATA_PATH, metadata)
 
     print("Selected source features:")
     for column in selected_columns:
@@ -135,8 +137,9 @@ def preprocess_cycle_dataframe(
     print("Target distribution:")
     print(y.value_counts(dropna=False).to_string())
     print(f"Final feature count: {encoded_df.shape[1]}")
-    print(f"Saved feature columns to: {FEATURE_COLUMNS_PATH}")
-    print(f"Saved preprocessing metadata to: {PREPROCESSING_METADATA_PATH}")
+    if save_artifacts:
+        print(f"Saved feature columns to: {FEATURE_COLUMNS_PATH}")
+        print(f"Saved preprocessing metadata to: {PREPROCESSING_METADATA_PATH}")
 
     return encoded_df, y, metadata
 

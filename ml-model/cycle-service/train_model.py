@@ -20,6 +20,7 @@ from app.utils.preprocessing import load_cycle_dataset, preprocess_cycle_datafra
 
 
 CYCLE_SERVICE_ROOT = Path(__file__).resolve().parent
+CHALLENGE_DATA_PATH = CYCLE_SERVICE_ROOT / "data" / "cycle_challenge_cases.csv"
 MODEL_DIR = CYCLE_SERVICE_ROOT / "model"
 MODEL_PATH = MODEL_DIR / "cycle_irregularity_model.pkl"
 METRICS_PATH = MODEL_DIR / "model_metrics.json"
@@ -89,6 +90,24 @@ def _evaluate_model(
     }
 
 
+def _load_challenge_set(feature_columns: list[str]) -> tuple[pd.DataFrame, pd.Series] | None:
+    if not CHALLENGE_DATA_PATH.exists():
+        print(f"No cycle challenge set found at: {CHALLENGE_DATA_PATH}")
+        return None
+
+    print(f"Loading labelled cycle challenge set from: {CHALLENGE_DATA_PATH}")
+    challenge_df = load_cycle_dataset(CHALLENGE_DATA_PATH)
+    X_challenge, y_challenge, challenge_metadata = preprocess_cycle_dataframe(
+        challenge_df,
+        save_artifacts=False,
+    )
+    X_challenge = X_challenge.reindex(columns=feature_columns, fill_value=0.0)
+
+    print(f"Challenge target strategy: {challenge_metadata['target_strategy']}")
+    print(f"Challenge shape: X={X_challenge.shape}, y={y_challenge.shape}")
+    return X_challenge, y_challenge
+
+
 def _save_feature_importance(
     model: RandomForestClassifier,
     feature_columns: list[str],
@@ -141,8 +160,25 @@ def main() -> None:
     model.fit(X_train, y_train)
 
     print("Evaluating model")
-    metrics = _evaluate_model(model, X_test, y_test)
-    y_pred = model.predict(X_test)
+    feature_columns = list(X.columns)
+    challenge_set = _load_challenge_set(feature_columns)
+    X_eval = X_test
+    y_eval = y_test
+    if challenge_set:
+        X_challenge, y_challenge = challenge_set
+        X_eval = pd.concat([X_test, X_challenge], ignore_index=True)
+        y_eval = pd.concat([y_test.reset_index(drop=True), y_challenge], ignore_index=True)
+
+    metrics = _evaluate_model(model, X_eval, y_eval)
+    metrics["standard_test_cases"] = len(y_test)
+    metrics["challenge_test_cases"] = len(challenge_set[1]) if challenge_set else 0
+    metrics["total_evaluation_cases"] = len(y_eval)
+    if challenge_set:
+        X_challenge, y_challenge = challenge_set
+        metrics["standard_split"] = _evaluate_model(model, X_test, y_test)
+        metrics["challenge_set"] = _evaluate_model(model, X_challenge, y_challenge)
+
+    y_pred = model.predict(X_eval)
 
     print(f"Accuracy: {metrics['accuracy']:.4f}")
     print(f"Precision: {metrics['precision']:.4f}")
@@ -154,7 +190,7 @@ def main() -> None:
     print(
         classification_report(
             y_test,
-            y_pred,
+            model.predict(X_test),
             labels=[0, 1],
             target_names=["regular", "irregular"],
             zero_division=0,
@@ -169,7 +205,7 @@ def main() -> None:
     _save_json(METRICS_PATH, metrics)
 
     print(f"Saving feature importance to: {FEATURE_IMPORTANCE_PATH}")
-    _save_feature_importance(model, list(X.columns))
+    _save_feature_importance(model, feature_columns)
 
     print("Training pipeline complete")
     print("Healthcare priority: review irregular-cycle recall before relying on accuracy.")
