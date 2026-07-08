@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, BookOpen, Clock, Sparkles } from "lucide-react";
+import { ArrowLeft, BookOpen, Clock, Sparkles, Share2 } from "lucide-react";
 import {
   getArticle,
   getSimilarArticles,
@@ -223,6 +223,32 @@ export default function KnowledgeArticleDetailPage() {
   const [recommendationSource, setRecommendationSource] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+  const [fontSize, setFontSize] = useState<"sm" | "base" | "lg" | "xl">("base");
+  const [copied, setCopied] = useState(false);
+  const [scrollProgress, setScrollProgress] = useState(0);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const totalHeight = document.documentElement.scrollHeight - window.innerHeight;
+      if (totalHeight > 0) {
+        const progress = (window.scrollY / totalHeight) * 100;
+        setScrollProgress(progress);
+      }
+    };
+    
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  const copyToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error("Failed to copy link: ", err);
+    }
+  };
 
   const articleBody = useMemo(() => {
     if (!article?.content) {
@@ -312,7 +338,15 @@ export default function KnowledgeArticleDetailPage() {
         Back to Knowledge Hub
       </Link>
 
-      <article className="mt-6 overflow-hidden rounded-3xl border border-border bg-card shadow-sm">
+      <article className="mt-6 overflow-hidden rounded-3xl border border-border bg-card shadow-sm relative">
+        {/* Reading Progress Indicator */}
+        <div className="absolute top-0 left-0 right-0 h-1 bg-muted z-30">
+          <div 
+            className="h-full bg-gradient-to-r from-primary to-secondary transition-all duration-75"
+            style={{ width: `${scrollProgress}%` }}
+          />
+        </div>
+
         <ArticleHeroGraphic article={article} />
 
         <div className="space-y-6 p-6 sm:p-8 lg:p-10">
@@ -337,7 +371,84 @@ export default function KnowledgeArticleDetailPage() {
             </div>
           </div>
 
-          <div className="space-y-5 text-base leading-8 text-foreground/85">
+          {/* Reading & Utility Controls */}
+          <div className="flex flex-col gap-4 border-y border-border/50 py-4 sm:flex-row sm:items-center sm:justify-between text-sm">
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <span className="font-semibold text-foreground">Author:</span> {article.author || 'SheCare Team'}
+            </div>
+            
+            <div className="flex flex-wrap items-center gap-3">
+              {/* Text Size Resizer */}
+              <div className="flex items-center gap-1.5 rounded-full border border-border/60 bg-muted/30 px-2.5 py-1">
+                <span className="text-xs text-muted-foreground font-semibold mr-1 select-none">Text Size</span>
+                <button
+                  type="button"
+                  onClick={() => setFontSize("sm")}
+                  className={`h-6 w-6 rounded-full text-xs font-bold transition-all flex items-center justify-center ${
+                    fontSize === "sm" ? "bg-primary text-primary-foreground shadow-sm" : "hover:bg-muted text-foreground"
+                  }`}
+                  title="Small text"
+                >
+                  A-
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFontSize("base")}
+                  className={`h-6 w-6 rounded-full text-xs font-bold transition-all flex items-center justify-center ${
+                    fontSize === "base" ? "bg-primary text-primary-foreground shadow-sm" : "hover:bg-muted text-foreground"
+                  }`}
+                  title="Normal text"
+                >
+                  A
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFontSize("lg")}
+                  className={`h-6 w-6 rounded-full text-xs font-bold transition-all flex items-center justify-center ${
+                    fontSize === "lg" ? "bg-primary text-primary-foreground shadow-sm" : "hover:bg-muted text-foreground"
+                  }`}
+                  title="Large text"
+                >
+                  A+
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFontSize("xl")}
+                  className={`h-6 w-6 rounded-full text-xs font-bold transition-all flex items-center justify-center ${
+                    fontSize === "xl" ? "bg-primary text-primary-foreground shadow-sm" : "hover:bg-muted text-foreground"
+                  }`}
+                  title="Extra large text"
+                >
+                  A++
+                </button>
+              </div>
+
+              {/* Share link button */}
+              <button
+                type="button"
+                onClick={copyToClipboard}
+                className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-muted/30 px-3 py-1 text-xs font-semibold text-foreground transition-all hover:bg-muted"
+              >
+                {copied ? (
+                  <>
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-ping" />
+                    Copied!
+                  </>
+                ) : (
+                  <>
+                    <Share2 className="h-3.5 w-3.5" />
+                    Share
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+
+          <div className={`space-y-5 leading-relaxed text-foreground/85 transition-all duration-200 ${
+            fontSize === "sm" ? "text-sm" : 
+            fontSize === "base" ? "text-base" : 
+            fontSize === "lg" ? "text-lg sm:text-xl leading-loose" : "text-xl sm:text-2xl leading-loose"
+          }`}>
             {articleBody.length ? (
               articleBody.map((paragraph) => <p key={paragraph}>{paragraph}</p>)
             ) : (
