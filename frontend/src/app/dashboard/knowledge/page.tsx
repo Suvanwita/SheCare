@@ -77,9 +77,7 @@ export default function KnowledgeHubPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const categories = useMemo(() => {
-    return ["all", ...Array.from(new Set(articles.map((article) => article.category)))];
-  }, [articles]);
+  const categories = ["all", "PCOS", "Menstrual Health", "Skin & Hormones", "Lifestyle", "Nutrition", "Mental Health"];
 
   useEffect(() => {
     let isMounted = true;
@@ -153,22 +151,28 @@ export default function KnowledgeHubPage() {
 
   return (
     <main className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-      <section className="rounded-lg border border-border bg-card p-6 shadow-sm sm:p-8">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+      <section className="relative rounded-3xl border border-border/60 bg-gradient-to-br from-card via-card to-primary/5 p-6 shadow-sm sm:p-8">
+        {/* Clipped background container for ambient glow shapes */}
+        <div className="absolute inset-0 overflow-hidden rounded-3xl pointer-events-none">
+          <div className="absolute -right-16 -top-16 h-64 w-64 rounded-full bg-primary/10 blur-3xl" />
+          <div className="absolute right-12 bottom-0 h-48 w-48 rounded-full bg-secondary/5 blur-3xl" />
+        </div>
+
+        <div className="relative z-10 flex flex-col gap-6 lg:pr-72">
           <div className="max-w-3xl space-y-3">
-            <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+            <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary border border-primary/20">
               <BookOpen className="h-3.5 w-3.5" />
               Knowledge Hub
             </div>
-            <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+            <h1 className="text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl leading-tight font-display bg-gradient-to-r from-foreground via-foreground/95 to-muted-foreground bg-clip-text">
               Learn about cycles, hormones, PCOS, and everyday care.
             </h1>
-            <p className="text-sm leading-6 text-muted-foreground sm:text-base">
-              Search SheCare articles and get smart suggestions from the backend Trie.
+            <p className="text-sm leading-relaxed text-muted-foreground sm:text-base max-w-xl">
+              Search SheCare articles and get smart suggestions.
             </p>
           </div>
 
-          <form onSubmit={submitSearch} className="relative w-full lg:max-w-md">
+          <form onSubmit={submitSearch} className="relative w-full max-w-2xl">
             <Search className="pointer-events-none absolute left-4 top-3.5 h-5 w-5 text-muted-foreground" />
             <input
               value={searchQuery}
@@ -200,6 +204,35 @@ export default function KnowledgeHubPage() {
               </div>
             ) : null}
           </form>
+        </div>
+
+        {/* Floating Book & Sparkles Illustration on Right Side */}
+        <div className="absolute right-8 top-1/2 -translate-y-1/2 w-72 h-44 hidden lg:flex items-center justify-center pointer-events-none select-none">
+          <svg className="w-full h-full" viewBox="0 0 200 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="100" cy="60" r="35" fill="url(#headerGlowGrad)" opacity="0.3" filter="blur(4px)" />
+            {/* Styled pages and spine */}
+            <path d="M72 42C72 36.4772 76.4772 32 82 32H100V88H82C76.4772 88 72 83.5228 72 78V42Z" fill="url(#leftPageGrad)" />
+            <path d="M128 42C128 36.4772 123.523 32 118 32H100V88H118C123.523 88 128 83.5228 128 78V42Z" fill="url(#rightPageGrad)" />
+            {/* Sparkles */}
+            <path d="M100 18L101.5 22L105.5 23.5L101.5 25L100 29L98.5 25L94.5 23.5L98.5 22L100 18Z" fill="#fbbf24" opacity="0.95" />
+            <path d="M142 62L143 65L146 66L143 67L142 70L141 67L138 66L141 65L142 62Z" fill="hsl(var(--primary))" opacity="0.8" />
+            <path d="M58 72L59 75L62 76L59 77L58 80L57 77L54 76L57 75L58 72Z" fill="hsl(var(--secondary))" opacity="0.75" />
+            
+            <defs>
+              <linearGradient id="headerGlowGrad" x1="65" y1="25" x2="135" y2="95" gradientUnits="userSpaceOnUse">
+                <stop stopColor="hsl(var(--primary))" />
+                <stop offset="1" stopColor="hsl(var(--secondary))" />
+              </linearGradient>
+              <linearGradient id="leftPageGrad" x1="72" y1="32" x2="100" y2="88" gradientUnits="userSpaceOnUse">
+                <stop stopColor="hsl(var(--primary))" stopOpacity="0.45" />
+                <stop offset="1" stopColor="hsl(var(--primary))" stopOpacity="0.1" />
+              </linearGradient>
+              <linearGradient id="rightPageGrad" x1="128" y1="32" x2="100" y2="88" gradientUnits="userSpaceOnUse">
+                <stop stopColor="hsl(var(--secondary))" stopOpacity="0.45" />
+                <stop offset="1" stopColor="hsl(var(--secondary))" stopOpacity="0.1" />
+              </linearGradient>
+            </defs>
+          </svg>
         </div>
       </section>
 

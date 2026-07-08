@@ -32,6 +32,142 @@ function getSourceLabel(source?: string) {
   return "Recommended using article similarity";
 }
 
+function ArticleHeroGraphic({ article }: { article: Article }) {
+  const category = article.category || "General";
+  const title = article.title || "";
+  
+  // Set up gradients and layouts based on category
+  let gradient = "from-rose-500/20 via-pink-500/10 to-transparent";
+  let svgContent = null;
+  
+  switch (category) {
+    case "PCOS":
+      gradient = "from-rose-500/20 via-orange-500/10 to-transparent";
+      svgContent = (
+        <>
+          <circle cx="100" cy="50" r="30" fill="url(#pcosGrad1)" opacity="0.4" />
+          <circle cx="130" cy="70" r="20" fill="url(#pcosGrad2)" opacity="0.3" />
+          <circle cx="80" cy="75" r="15" fill="url(#pcosGrad1)" opacity="0.2" />
+          <path d="M140 30L142 33L145 34L142 35L140 38L138 35L135 34L138 33L140 30Z" fill="#fbbf24" />
+          <path d="M60 40H66V46H60V40Z" fill="hsl(var(--primary))" opacity="0.3" />
+          <path d="M63 37V49" stroke="hsl(var(--primary))" strokeWidth="2" opacity="0.5" />
+          <path d="M57 43H69" stroke="hsl(var(--primary))" strokeWidth="2" opacity="0.5" />
+        </>
+      );
+      break;
+    case "Menstrual Health":
+      gradient = "from-pink-500/20 via-rose-500/10 to-transparent";
+      svgContent = (
+        <>
+          <rect x="75" y="30" width="50" height="50" rx="8" fill="url(#menstrualGrad)" opacity="0.3" stroke="hsl(var(--primary))" strokeWidth="1.5" />
+          <line x1="75" y1="42" x2="125" y2="42" stroke="hsl(var(--primary))" strokeWidth="1.5" />
+          <path d="M100 48C97 48 95 50 95 53C95 56 97 58 100 58C103 58 105 56 105 53C105 50 103 48 100 48Z" fill="hsl(var(--primary))" opacity="0.6" />
+          <path d="M100 48L97.5 52.5C97 53.5 97 54 100 54C103 54 103 53.5 102.5 52.5L100 48Z" fill="hsl(var(--primary))" opacity="0.6" />
+          <path d="M140 40L141.5 43.5L145 45L141.5 46.5L140 50L138.5 46.5L135 45L138.5 43.5L140 40Z" fill="#f43f5e" />
+        </>
+      );
+      break;
+    case "Skin & Hormones":
+      gradient = "from-amber-500/20 via-yellow-500/10 to-transparent";
+      svgContent = (
+        <>
+          <circle cx="100" cy="55" r="25" fill="none" stroke="hsl(var(--secondary))" strokeWidth="2" strokeDasharray="4 4" opacity="0.6" />
+          <circle cx="100" cy="55" r="18" fill="url(#skinGrad)" opacity="0.4" />
+          <path d="M100 20V26" stroke="hsl(var(--secondary))" strokeWidth="2" />
+          <path d="M100 84V90" stroke="hsl(var(--secondary))" strokeWidth="2" />
+          <path d="M65 55H71" stroke="hsl(var(--secondary))" strokeWidth="2" />
+          <path d="M129 55H135" stroke="hsl(var(--secondary))" strokeWidth="2" />
+        </>
+      );
+      break;
+    case "Lifestyle":
+      gradient = "from-emerald-500/20 via-teal-500/10 to-transparent";
+      svgContent = (
+        <>
+          <rect x="75" y="30" width="50" height="50" rx="25" fill="none" stroke="hsl(var(--primary))" strokeWidth="1.5" strokeDasharray="3 3" />
+          <path d="M92 45L100 52L112 40" stroke="hsl(var(--primary))" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.7" />
+          <circle cx="100" cy="55" r="8" fill="url(#lifestyleGrad)" opacity="0.3" />
+          <path d="M140 60L141.5 63.5L145 65L141.5 66.5L140 70L138.5 66.5L135 65L138.5 63.5L140 60Z" fill="#10b981" />
+        </>
+      );
+      break;
+    case "Nutrition":
+      gradient = "from-sky-500/20 via-blue-500/10 to-transparent";
+      svgContent = (
+        <>
+          <path d="M85 65C85 50 100 35 100 35C100 35 115 50 115 65C115 75 108 82 100 82C92 82 85 75 85 65Z" fill="url(#nutritionGrad)" opacity="0.35" />
+          <path d="M100 35V82" stroke="hsl(var(--primary))" strokeWidth="1.5" opacity="0.5" />
+          <path d="M100 55C95 50 90 52 90 52" stroke="hsl(var(--primary))" strokeWidth="1.5" opacity="0.5" />
+          <path d="M100 65C105 60 110 62 110 62" stroke="hsl(var(--primary))" strokeWidth="1.5" opacity="0.5" />
+        </>
+      );
+      break;
+    case "Mental Health":
+      gradient = "from-indigo-500/20 via-purple-500/10 to-transparent";
+      svgContent = (
+        <>
+          <path d="M100 38C95 33 85 33 80 38C75 43 75 53 100 75C125 53 125 43 120 38C115 33 105 33 100 38Z" fill="url(#mentalGrad)" opacity="0.4" />
+          <path d="M70 70C85 65 95 75 110 70C125 65 130 70 130 70" stroke="hsl(var(--primary))" strokeWidth="1.5" strokeLinecap="round" opacity="0.4" />
+        </>
+      );
+      break;
+    default:
+      svgContent = (
+        <>
+          <circle cx="100" cy="55" r="25" fill="url(#pcosGrad1)" opacity="0.3" />
+        </>
+      );
+  }
+
+  return (
+    <div className={`relative h-64 w-full bg-gradient-to-b ${gradient} flex items-center justify-center border-b border-border/40 select-none overflow-hidden sm:h-80`}>
+      <div className="absolute inset-0 bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:14px_24px] pointer-events-none" />
+      
+      <div className="relative w-80 h-48 flex items-center justify-center z-10">
+        <svg className="w-full h-full text-foreground/80" viewBox="0 0 200 110" fill="none" xmlns="http://www.w3.org/2000/svg">
+          {svgContent}
+          
+          <defs>
+            <linearGradient id="pcosGrad1" x1="70" y1="20" x2="130" y2="80" gradientUnits="userSpaceOnUse">
+              <stop stopColor="hsl(var(--primary))" />
+              <stop offset="1" stopColor="hsl(var(--secondary))" />
+            </linearGradient>
+            <linearGradient id="pcosGrad2" x1="110" y1="50" x2="150" y2="90" gradientUnits="userSpaceOnUse">
+              <stop stopColor="#f59e0b" />
+              <stop offset="1" stopColor="#d97706" stopOpacity="0.5" />
+            </linearGradient>
+            <linearGradient id="menstrualGrad" x1="75" y1="30" x2="125" y2="80" gradientUnits="userSpaceOnUse">
+              <stop stopColor="#f43f5e" />
+              <stop offset="1" stopColor="#ec4899" />
+            </linearGradient>
+            <linearGradient id="skinGrad" x1="82" y1="37" x2="118" y2="73" gradientUnits="userSpaceOnUse">
+              <stop stopColor="#d97706" />
+              <stop offset="1" stopColor="#f59e0b" />
+            </linearGradient>
+            <linearGradient id="lifestyleGrad" x1="92" y1="47" x2="108" y2="63" gradientUnits="userSpaceOnUse">
+              <stop stopColor="#10b981" />
+              <stop offset="1" stopColor="#059669" />
+            </linearGradient>
+            <linearGradient id="nutritionGrad" x1="85" y1="35" x2="115" y2="82" gradientUnits="userSpaceOnUse">
+              <stop stopColor="#0284c7" />
+              <stop offset="1" stopColor="#0ea5e9" />
+            </linearGradient>
+            <linearGradient id="mentalGrad" x1="80" y1="33" x2="120" y2="75" gradientUnits="userSpaceOnUse">
+              <stop stopColor="#6366f1" />
+              <stop offset="1" stopColor="#8b5cf6" />
+            </linearGradient>
+          </defs>
+        </svg>
+      </div>
+
+      <div className="absolute bottom-4 left-6 z-20 border border-border/40 bg-card/75 backdrop-blur-md px-3.5 py-2 rounded-2xl shadow-sm max-w-xs sm:max-w-md hidden sm:block">
+        <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">{category} Care Guide</span>
+        <h4 className="text-xs font-bold text-foreground mt-0.5 line-clamp-1">{title}</h4>
+      </div>
+    </div>
+  );
+}
+
 function SimilarReadCard({ article }: { article: SimilarArticle }) {
   const readingTime = getReadingTime(article);
 
@@ -176,13 +312,8 @@ export default function KnowledgeArticleDetailPage() {
         Back to Knowledge Hub
       </Link>
 
-      <article className="mt-6 overflow-hidden rounded-lg border border-border bg-card shadow-sm">
-        {article.coverImage ? (
-          <div
-            className="h-64 w-full bg-cover bg-center sm:h-80"
-            style={{ backgroundImage: `url(${article.coverImage})` }}
-          />
-        ) : null}
+      <article className="mt-6 overflow-hidden rounded-3xl border border-border bg-card shadow-sm">
+        <ArticleHeroGraphic article={article} />
 
         <div className="space-y-6 p-6 sm:p-8 lg:p-10">
           <div className="space-y-4">

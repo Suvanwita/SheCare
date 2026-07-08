@@ -1,0 +1,9 @@
+{
+  "name": "shecare-root",
+  "version": "1.0.0",
+  "description": "Root for SheCare - Women's Health Platform",
+  "scripts": {
+    "start": "node start-all.js",
+    "dev": "node start-all.js"
+  }
+}

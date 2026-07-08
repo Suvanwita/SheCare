@@ -249,6 +249,32 @@ Authorization: Bearer <accessToken>
 
 ## Setup And Installation
 
+### Quick Start (All-in-One script)
+
+You can run the entire platform (infrastructure, frontend, backend API, workers, consumers, and ML services) with a single command from the project root:
+
+```bash
+# Make sure docker daemon is running
+./start.sh
+```
+
+Or using `npm`:
+
+```bash
+npm start
+```
+
+This script will:
+- Spin up Redis, Zookeeper, and Kafka in Docker Compose automatically.
+- Wait for the services to be ready and initialize the Kafka topics.
+- Start all 3 FastAPI ML services, backend API, 2 backend workers, 2 backend consumers, and the Next.js frontend in development mode.
+- Output clean, colored, prefixed logs for each service.
+- Gracefully shut down all background services when you press `Ctrl+C`.
+
+---
+
+### Step-by-Step Setup
+
 ### 1. Clone And Enter The Project
 
 ```bash

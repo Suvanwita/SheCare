@@ -2,11 +2,11 @@
 
 import React, { useEffect } from "react";
 import { motion } from "framer-motion";
-import CycleTracker from "../../components/dashboard/CycleTracker";
-import VitalsCharts from "../../components/dashboard/VitalsCharts";
+import DailyChecklist from "../../components/dashboard/DailyChecklist";
+import ActivityTimeline from "../../components/dashboard/ActivityTimeline";
 import SymptomLogger from "../../components/dashboard/SymptomLogger";
 import WellnessTips from "../../components/dashboard/WellnessTips";
-import AIConsultationMock from "../../components/dashboard/AIConsultationMock";
+import KnowledgeHubFeatured from "../../components/dashboard/KnowledgeHubFeatured";
 import { Moon, Droplet, Heart, Pill } from "lucide-react";
 import { useAnalyticsStore } from "../../store/analyticsStore";
 
@@ -54,7 +54,7 @@ export default function DashboardPage() {
           </h1>
           <p className="text-sm text-muted-foreground mt-1.5 font-medium flex items-center gap-1.5">
             <Heart className="h-4 w-4 text-primary fill-primary/10" />
-            Syncing self-care details for Day 22 of your menstrual cycle.
+            Syncing your daily self-care and wellness activities.
           </p>
         </div>
 
@@ -133,13 +133,13 @@ export default function DashboardPage() {
 
       </motion.div>
 
-      {/* 3. Menstrual Cycle Tracker & Vitals Charts split layout */}
+      {/* 3. Daily Checklist & Activity Timeline split layout */}
       <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        <div id="cycle-analytics" className="lg:col-span-3 scroll-mt-24">
-          <CycleTracker />
+        <div id="daily-checklist" className="lg:col-span-3 scroll-mt-24">
+          <DailyChecklist />
         </div>
-        <div className="lg:col-span-2">
-          <VitalsCharts />
+        <div id="recent-activity" className="lg:col-span-2 scroll-mt-24">
+          <ActivityTimeline />
         </div>
       </motion.div>
 
@@ -148,13 +148,13 @@ export default function DashboardPage() {
         <SymptomLogger />
       </motion.div>
 
-      {/* 5. Self-Care tips & AI Conversation assistant split layout */}
+      {/* 5. Self-Care tips & Featured educational guides split layout */}
       <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         <div className="lg:col-span-2">
           <WellnessTips />
         </div>
-        <div id="ai-assistant" className="lg:col-span-3 scroll-mt-24">
-          <AIConsultationMock />
+        <div id="featured-guides" className="lg:col-span-3 scroll-mt-24">
+          <KnowledgeHubFeatured />
         </div>
       </motion.div>
     </motion.div>

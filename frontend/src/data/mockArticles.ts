@@ -1,12 +1,8 @@
-const dotenv = require('dotenv');
-const mongoose = require('mongoose');
-const Article = require('../models/Article');
-const { buildArticleTrie } = require('../utils/trie/articleTrie');
+import { Article } from "../services/article.service";
 
-dotenv.config();
-
-const articles = [
+export const MOCK_ARTICLES: Article[] = [
   {
+    _id: "mock-art-1",
     title: 'Understanding PCOS Symptoms',
     slug: 'understanding-pcos-symptoms',
     category: 'PCOS',
@@ -22,6 +18,7 @@ const articles = [
     featured: true
   },
   {
+    _id: "mock-art-2",
     title: 'PCOS Nutrition Basics',
     slug: 'pcos-nutrition-basics',
     category: 'PCOS',
@@ -37,6 +34,7 @@ const articles = [
     featured: true
   },
   {
+    _id: "mock-art-3",
     title: 'How to Track Your Menstrual Cycle',
     slug: 'how-to-track-your-menstrual-cycle',
     category: 'Menstrual Health',
@@ -52,6 +50,7 @@ const articles = [
     featured: false
   },
   {
+    _id: "mock-art-4",
     title: 'Irregular Periods: When to Seek Care',
     slug: 'irregular-periods-when-to-seek-care',
     category: 'Menstrual Health',
@@ -67,6 +66,7 @@ const articles = [
     featured: true
   },
   {
+    _id: "mock-art-5",
     title: 'Hormonal Acne and Cycle Changes',
     slug: 'hormonal-acne-and-cycle-changes',
     category: 'Skin & Hormones',
@@ -82,6 +82,7 @@ const articles = [
     featured: false
   },
   {
+    _id: "mock-art-6",
     title: 'Stress, Sleep, and Hormone Balance',
     slug: 'stress-sleep-and-hormone-balance',
     category: 'Lifestyle',
@@ -97,6 +98,7 @@ const articles = [
     featured: false
   },
   {
+    _id: "mock-art-7",
     title: 'PCOS and Exercise: Best Practices',
     slug: 'pcos-and-exercise-best-practices',
     category: 'PCOS',
@@ -112,6 +114,7 @@ const articles = [
     featured: false
   },
   {
+    _id: "mock-art-8",
     title: 'Managing Mood Swings Naturally',
     slug: 'managing-mood-swings-naturally',
     category: 'Mental Health',
@@ -127,6 +130,7 @@ const articles = [
     featured: true
   },
   {
+    _id: "mock-art-9",
     title: 'Guide to Endocrine Disruptors',
     slug: 'guide-to-endocrine-disruptors',
     category: 'Lifestyle',
@@ -142,6 +146,7 @@ const articles = [
     featured: false
   },
   {
+    _id: "mock-art-10",
     title: 'The Role of Insulin in PCOS',
     slug: 'the-role-of-insulin-in-pcos',
     category: 'PCOS',
@@ -157,6 +162,7 @@ const articles = [
     featured: false
   },
   {
+    _id: "mock-art-11",
     title: 'Hydration Goals for Hormone Health',
     slug: 'hydration-goals-for-hormone-health',
     category: 'Nutrition',
@@ -172,6 +178,7 @@ const articles = [
     featured: false
   },
   {
+    _id: "mock-art-12",
     title: 'Fertility Awareness Method Explained',
     slug: 'fertility-awareness-method-explained',
     category: 'Menstrual Health',
@@ -187,6 +194,7 @@ const articles = [
     featured: false
   },
   {
+    _id: "mock-art-13",
     title: 'Vitamins and Supplements for PCOS',
     slug: 'vitamins-and-supplements-for-pcos',
     category: 'PCOS',
@@ -202,6 +210,7 @@ const articles = [
     featured: false
   },
   {
+    _id: "mock-art-14",
     title: 'Understanding Your Luteal Phase',
     slug: 'understanding-your-luteal-phase',
     category: 'Menstrual Health',
@@ -217,6 +226,7 @@ const articles = [
     featured: false
   },
   {
+    _id: "mock-art-15",
     title: 'Gut Health and Hormone Balance',
     slug: 'gut-health-and-hormone-balance',
     category: 'Lifestyle',
@@ -232,6 +242,7 @@ const articles = [
     featured: false
   },
   {
+    _id: "mock-art-16",
     title: 'How to Deal with Period Cramps',
     slug: 'how-to-deal-with-period-cramps',
     category: 'Menstrual Health',
@@ -247,6 +258,7 @@ const articles = [
     featured: true
   },
   {
+    _id: "mock-art-17",
     title: 'Skincare Routine for Hormonal Skin',
     slug: 'skincare-routine-for-hormonal-skin',
     category: 'Skin & Hormones',
@@ -256,12 +268,13 @@ const articles = [
       'Hormonal skin fluctuations, particularly those leading to premenstrual breakouts, require a gentle, supportive approach. Rather than using harsh, stripping products that can damage the skin barrier, a routine focused on maintaining balance, reducing inflammation, and supporting skin barrier integrity is key.\n\nHormonal acne develops when sebaceous glands produce excess sebum under the influence of fluctuating hormones, combined with poor skin cell shedding that clogs pores. To care for hormonal skin, start with a gentle, hydrating cleanser that removes impurities without stripping moisture. Avoid scrubbing, which can worsen inflammation.\n\nIncorporate targeted treatments containing salicylic acid (BHA) to penetrate pores and exfoliate build-up, or niacinamide to calm redness and regulate sebum. Hydration is essential, as dehydrated skin can overproduce oil to compensate; choose oil-free, non-comedogenic moisturizers containing hyaluronic acid or ceramides to support barrier function. Always apply daily SPF to prevent post-inflammatory hyperpigmentation. Consult a dermatologist for personalized, clinical skincare guidance.',
     coverImage: '/images/knowledge/skincare-hormones.jpg',
     tags: ['skincare', 'acne', 'barriers'],
-    keywords: ['salicylic acid', 'non-comedogenic', 'skin barrier', 'blemish'],
+    keywords: ['rosewater', 'non-comedogenic', 'skin barrier', 'blemish'],
     readingTime: 4,
     author: 'SheCare Dermatology Education',
     featured: false
   },
   {
+    _id: "mock-art-18",
     title: 'PCOS and Thyroid: The Connection',
     slug: 'pcos-and-thyroid-the-connection',
     category: 'PCOS',
@@ -277,6 +290,7 @@ const articles = [
     featured: false
   },
   {
+    _id: "mock-art-19",
     title: 'Mindfulness for Cycle Stress',
     slug: 'mindfulness-for-cycle-stress',
     category: 'Mental Health',
@@ -292,6 +306,7 @@ const articles = [
     featured: false
   },
   {
+    _id: "mock-art-20",
     title: 'Sleep Quality and Fertility',
     slug: 'sleep-quality-and-fertility',
     category: 'Lifestyle',
@@ -307,48 +322,3 @@ const articles = [
     featured: false
   }
 ];
-
-const seedArticles = async ({ manageConnection = true } = {}) => {
-  const mongoUri = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/shecare';
-  let openedConnection = false;
-
-  try {
-    if (manageConnection && mongoose.connection.readyState === 0) {
-      await mongoose.connect(mongoUri);
-      openedConnection = true;
-    }
-
-    await Article.deleteMany({
-      slug: {
-        $in: articles.map((article) => article.slug)
-      }
-    });
-    await Article.insertMany(articles);
-    await buildArticleTrie();
-    console.log(`Seeded ${articles.length} articles and rebuilt article trie.`);
-
-    return {
-      count: articles.length
-    };
-  } catch (error) {
-    console.error(`Article seed failed: ${error.message}`);
-    if (manageConnection) {
-      process.exitCode = 1;
-    }
-
-    throw error;
-  } finally {
-    if (manageConnection && openedConnection) {
-      await mongoose.disconnect();
-    }
-  }
-};
-
-if (require.main === module) {
-  seedArticles().catch(() => {});
-}
-
-module.exports = {
-  articles,
-  seedArticles
-};

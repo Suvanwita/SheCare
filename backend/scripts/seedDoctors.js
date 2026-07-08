@@ -28,6 +28,17 @@ const doctors = [
     isVerified: true
   },
   {
+    name: 'Dr. Simran Varma',
+    specialization: 'Gynecologist',
+    experienceYears: 9,
+    rating: 4.7,
+    location: 'Chennai',
+    consultationFee: 1300,
+    availableSlots: ['09:00', '14:00', '17:00'],
+    bio: 'Specializes in PCOS management, fertility counseling, and minimally invasive surgeries.',
+    isVerified: true
+  },
+  {
     name: 'Dr. Nisha Iyer',
     specialization: 'Endocrinologist',
     experienceYears: 15,
@@ -50,6 +61,17 @@ const doctors = [
     isVerified: true
   },
   {
+    name: 'Dr. Divya Nair',
+    specialization: 'Endocrinologist',
+    experienceYears: 13,
+    rating: 4.6,
+    location: 'Bengaluru',
+    consultationFee: 1700,
+    availableSlots: ['10:30', '14:00', '18:00'],
+    bio: 'Expert in diabetes management during pregnancy, thyroid disorders, and reproductive endocrinology.',
+    isVerified: true
+  },
+  {
     name: 'Dr. Rhea Kapoor',
     specialization: 'Dermatologist',
     experienceYears: 8,
@@ -58,6 +80,17 @@ const doctors = [
     consultationFee: 1100,
     availableSlots: ['10:30', '14:30', '18:30'],
     bio: 'Treats acne, hair loss, skin darkening, and hormone-linked skin concerns.',
+    isVerified: true
+  },
+  {
+    name: 'Dr. Aisha Khan',
+    specialization: 'Dermatologist',
+    experienceYears: 6,
+    rating: 4.5,
+    location: 'Mumbai',
+    consultationFee: 1200,
+    availableSlots: ['11:00', '15:00', '19:00'],
+    bio: 'Focuses on laser acne therapy, hormonal skin treatments, and anti-aging dermatology.',
     isVerified: true
   },
   {
@@ -91,6 +124,17 @@ const doctors = [
     consultationFee: 1300,
     availableSlots: ['08:30', '13:00', '20:00'],
     bio: 'Provides stress, sleep, body image, and chronic-health emotional support.',
+    isVerified: true
+  },
+  {
+    name: 'Dr. Shalini Joshi',
+    specialization: 'Mental Wellness Counselor',
+    experienceYears: 12,
+    rating: 4.8,
+    location: 'Remote',
+    consultationFee: 1250,
+    availableSlots: ['09:30', '14:30', '19:00'],
+    bio: 'Specializes in cognitive behavioral therapy (CBT), stress management, and reproductive-stage wellness.',
     isVerified: true
   }
 ];

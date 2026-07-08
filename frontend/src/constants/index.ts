@@ -9,9 +9,9 @@ export const LANDING_NAV_ITEMS = [
 
 export const NAVIGATION_ITEMS: NavItem[] = [
   { title: "Overview", href: "/dashboard", iconName: "LayoutDashboard" },
-  { title: "Cycle Analytics", href: "/dashboard#cycle-analytics", iconName: "CalendarDays" },
+  { title: "Daily Checklist", href: "/dashboard#daily-checklist", iconName: "CheckSquare" },
   { title: "Wellness Logs", href: "/dashboard#wellness-logs", iconName: "HeartPulse" },
-  { title: "AI Assistant", href: "/dashboard#ai-assistant", iconName: "Sparkles" },
+  { title: "Care Guides", href: "/dashboard#featured-guides", iconName: "BookOpen" },
 ];
 
 export interface PhaseDetail {
