@@ -76,6 +76,7 @@ export default function KnowledgeHubPage() {
   const [category, setCategory] = useState("all");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
+  const [quickReads, setQuickReads] = useState(false);
 
   const categories = ["all", "PCOS", "Menstrual Health", "Skin & Hormones", "Lifestyle", "Nutrition", "Mental Health"];
 
@@ -94,7 +95,11 @@ export default function KnowledgeHubPage() {
         });
 
         if (isMounted) {
-          setArticles(result.articles);
+          let list = result.articles;
+          if (quickReads) {
+            list = list.filter((article) => (article.readingTime || 5) <= 5);
+          }
+          setArticles(list);
         }
       } catch {
         if (isMounted) {
@@ -112,7 +117,7 @@ export default function KnowledgeHubPage() {
     return () => {
       isMounted = false;
     };
-  }, [activeQuery, category]);
+  }, [activeQuery, category, quickReads]);
 
   useEffect(() => {
     let isMounted = true;
@@ -236,22 +241,38 @@ export default function KnowledgeHubPage() {
         </div>
       </section>
 
-      <section className="mt-6 flex flex-wrap gap-2">
-        {categories.map((item) => (
-          <button
-            key={item}
-            type="button"
-            onClick={() => setCategory(item)}
-            className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition-colors ${
-              category === item
-                ? "border-primary bg-primary text-primary-foreground"
-                : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground"
-            }`}
-          >
-            <Tag className="h-4 w-4" />
-            {item === "all" ? "All articles" : item}
-          </button>
-        ))}
+      <section className="mt-6 flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap gap-2">
+          {categories.map((item) => (
+            <button
+              key={item}
+              type="button"
+              onClick={() => setCategory(item)}
+              className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition-colors ${
+                category === item
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground"
+              }`}
+            >
+              <Tag className="h-4 w-4" />
+              {item === "all" ? "All articles" : item}
+            </button>
+          ))}
+        </div>
+
+        {/* Quick Reads Toggle Button */}
+        <button
+          type="button"
+          onClick={() => setQuickReads(!quickReads)}
+          className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition-all ${
+            quickReads
+              ? "border-secondary bg-secondary text-secondary-foreground shadow-sm"
+              : "border-border bg-card text-muted-foreground hover:border-secondary/40 hover:text-foreground"
+          }`}
+        >
+          <Clock className="h-4 w-4" />
+          <span>Quick Reads (≤ 5 min)</span>
+        </button>
       </section>
 
       {error ? (
